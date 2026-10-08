@@ -7,17 +7,20 @@
     import com.fploptimizer.backend.entity.Fixture;
     import com.fploptimizer.backend.entity.Player;
     import com.fploptimizer.backend.entity.Team;
+    import com.fploptimizer.backend.mapper.PlayerMapper;
     import com.fploptimizer.backend.repository.FixtureRepository;
     import com.fploptimizer.backend.repository.PlayerRepository;
     import com.fploptimizer.backend.repository.TeamRepository;
     import jakarta.annotation.PostConstruct;
     import lombok.RequiredArgsConstructor;
+    import lombok.extern.slf4j.Slf4j;
     import org.springframework.stereotype.Service;
     import org.springframework.web.client.RestTemplate;
 
     import java.util.ArrayList;
     import java.util.List;
 
+    @Slf4j
     @Service
     @RequiredArgsConstructor
     public class FplDataSyncService {
@@ -26,7 +29,7 @@
         private final TeamRepository teamRepository;
         private final PlayerRepository playerRepository;
         private final FixtureRepository fixtureRepository;
-
+        private final PlayerMapper playerMapper;
 
         @PostConstruct // This function is executed automatically once - when Spring Context is initialized
         public void fetchStaticData()
@@ -36,6 +39,11 @@
 
             // HTTP GET request to the FPL endpoint and deserializes JSON response to our DTO
             FplStaticResponseDto response =  restTemplate.getForObject(url, FplStaticResponseDto.class);
+
+            if (response == null) {
+                log.warn("Failed to fetch data from FPL API: response was null");
+                return;
+            }
 
             syncTeams(response);
             syncPlayers(response);
@@ -72,29 +80,19 @@
 
         public void syncPlayers(FplStaticResponseDto response){
 
+            if (response == null || response.getPlayers() == null) {
+                return;
+            }
+
             List<Player> playersToSave = new ArrayList<>();
-
-
-
-            for  (PlayerDto dto : response.getPlayers()) {
-                Player player = new Player();
-
-                player.setId(dto.getId());
-                player.setFirstName(dto.getFirstName());
-                player.setLastName(dto.getLastName());
-                player.setPosition(dto.getPosition());
-                player.setCurrentPrice(dto.getCurrentPrice());
-                player.setEpNext(dto.getEpNext());
-                player.setExpectedGoals(dto.getExpectedGoals());
-                player.setExpectedAssists(dto.getExpectedAssists());
-                player.setChanceOfPlayingNextRound(dto.getChanceOfPlayingNextRound());
-                player.setStatus(dto.getStatus());
-                Team teamRef = teamRepository.getReferenceById(dto.getTeamId());
-                player.setTeam(teamRef);
-
+            for (PlayerDto dto : response.getPlayers()) {
+                Team team = teamRepository.getReferenceById(dto.getTeamId());
+                Player player = playerMapper.toEntity(dto, team);
                 playersToSave.add(player);
             }
+
             playerRepository.saveAll(playersToSave);
+            log.info("Successfully synced and saved {} players with enriched stats", playersToSave.size());
         }
 
         public void syncFixtures(){
