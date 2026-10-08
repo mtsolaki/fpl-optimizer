@@ -22,4 +22,7 @@ public class FplStaticResponseDto {
 
     @JsonProperty("elements")
     private List<PlayerDto> players = new ArrayList<>();
+
+    @JsonProperty("events")
+    private List<GameweekDto> gameweeks = new ArrayList<>();
 }
