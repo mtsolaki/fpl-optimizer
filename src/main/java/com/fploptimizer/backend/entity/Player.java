@@ -26,7 +26,9 @@ public class Player {
     private String webName;
     private String firstName;
     private String lastName;
-    private Integer position;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Position position;
     private String status;
 
     @Embedded

@@ -7,8 +7,8 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "player_gameweek_logs",  uniqueConstraints = {
-        @UniqueConstraint(name = "uk_player_gw_season",
-        columnNames = {"player_id","gameweek_id","season"})
+        @UniqueConstraint(name = "uk_player_fixture_season",
+        columnNames = {"player_id","fixture_id","season"})
 })
 @Getter
 @Setter
@@ -23,8 +23,16 @@ public class PlayerGameweekLog {
     private Player player;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fixture_id", nullable = false)
+    private Fixture fixture;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "gameweek_id", nullable = false)
     private Gameweek gameweek;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "algorithm_weight_id")
+    private AlgorithmWeight algorithmWeight;
 
     @Column(nullable = false)
     private String season; // e.g. 2026-2027
@@ -54,6 +62,9 @@ public class PlayerGameweekLog {
     private Integer actualSaves;
     private Integer actualBonus;
     private Integer actualTotalPoints;
+    private Integer actualPenaltiesMissed;
+    private Integer actualPenaltiesSaved;
+    private Integer actualPenaltiesConceded;
 
     private Double predictionDelta; // actualTotalPoints - projectedXp
 }

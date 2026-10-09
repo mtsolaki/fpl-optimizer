@@ -2,6 +2,7 @@ package com.fploptimizer.backend.mapper;
 
 import com.fploptimizer.backend.dto.PlayerDto;
 import com.fploptimizer.backend.entity.Player;
+import com.fploptimizer.backend.entity.Position;
 import com.fploptimizer.backend.entity.Team;
 import com.fploptimizer.backend.entity.player.PlayerAdvancedMetrics;
 import com.fploptimizer.backend.entity.player.PlayerMarketInfo;
@@ -23,7 +24,7 @@ public class PlayerMapper {
         player.setWebName(dto.getWebName());
         player.setFirstName(dto.getFirstName());
         player.setLastName(dto.getLastName());
-        player.setPosition(dto.getPosition());
+        player.setPosition(Position.fromElementTypeId(dto.getPosition()));
         player.setStatus(dto.getStatus());
         player.setTeam(team);
 
