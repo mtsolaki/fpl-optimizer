@@ -21,12 +21,16 @@ public class PlayerMapper {
 
         // 1. Identity & Core Fields
         player.setId(dto.getId());
+        player.setCode(dto.getCode());
         player.setWebName(dto.getWebName());
         player.setFirstName(dto.getFirstName());
         player.setLastName(dto.getLastName());
         player.setPosition(Position.fromElementTypeId(dto.getPosition()));
         player.setStatus(dto.getStatus());
         player.setTeam(team);
+        player.setPenaltiesOrder(dto.getPenaltiesOrder());
+        player.setDirectFreeKicksOrder(dto.getDirectFreekicksOrder());
+        player.setCornersAndIndirectFreeKicksOrder(dto.getCornersAndIndirectFreekicksOrder());
 
         // 2. Performance Metrics
         PlayerPerformance performance = player.getPerformance();
@@ -41,10 +45,19 @@ public class PlayerMapper {
         performance.setSaves(dto.getSaves());
         performance.setBonus(dto.getBonus());
         performance.setBps(dto.getBps());
+        performance.setPenaltiesSaved(dto.getPenaltiesSaved());
+        performance.setPenaltiesMissed(dto.getPenaltiesMissed());
+        performance.setCbi(dto.getCbi());
+        performance.setRecoveries(dto.getRecoveries());
+        performance.setTackles(dto.getTackles());
+        performance.setDefensiveContribution(dto.getDefensiveContribution());
+        performance.setSavesPer90(dto.getSavesPer90());
+        performance.setGoalsConcededPer90(dto.getGoalsConcededPer90());
+        performance.setDefensiveContributionPer90(dto.getDefensiveContributionPer90());
 
         // 3. Advanced Expected Metrics
         PlayerAdvancedMetrics advancedMetrics = player.getAdvancedMetrics();
-        advancedMetrics.setForm(dto.getForm());
+        advancedMetrics.setForm(parseDoubleSafe(dto.getForm()));
         advancedMetrics.setExpectedGoals(parseDoubleSafe(dto.getExpectedGoals()));
         advancedMetrics.setExpectedAssists(parseDoubleSafe(dto.getExpectedAssists()));
         advancedMetrics.setExpectedGoalInvolvements(parseDoubleSafe(dto.getExpectedGoalInvolvements()));
@@ -53,6 +66,11 @@ public class PlayerMapper {
         advancedMetrics.setExpectedAssistsPer90(parseDoubleSafe(dto.getExpectedAssistsPer90()));
         advancedMetrics.setExpectedGoalInvolvementsPer90(parseDoubleSafe(dto.getExpectedGoalInvolvementsPer90()));
         advancedMetrics.setExpectedGoalsConcededPer90(parseDoubleSafe(dto.getExpectedGoalsConcededPer90()));
+        advancedMetrics.setInfluence(parseDoubleSafe(dto.getInfluence()));
+        advancedMetrics.setCreativity(parseDoubleSafe(dto.getCreativity()));
+        advancedMetrics.setThreat(parseDoubleSafe(dto.getThreat()));
+        advancedMetrics.setIctIndex(parseDoubleSafe(dto.getIctIndex()));
+
 
         // 4. Market & Availability Info
         PlayerMarketInfo marketInfo = player.getMarketInfo();
@@ -60,9 +78,16 @@ public class PlayerMapper {
             marketInfo.setCurrentPrice(dto.getCurrentPrice() / 10.0);
         }
         marketInfo.setSelectedByPercent(parseDoubleSafe(dto.getSelectedByPercent()));
+        marketInfo.setTransfersIn(dto.getTransfersIn());
+        marketInfo.setTransfersOut(dto.getTransfersOut());
+        marketInfo.setTransfersInGameweek(dto.getTransfersInGameweek());
+        marketInfo.setTransfersOutGameweek(dto.getTransfersOutGameweek());
+        marketInfo.setChanceOfPlayingThisRound(dto.getChanceOfPlayingThisRound());
         marketInfo.setChanceOfPlayingNextRound(dto.getChanceOfPlayingNextRound());
         marketInfo.setNews(dto.getNews());
-        marketInfo.setEpNext(dto.getEpNext());
+        marketInfo.setEpThis(parseDoubleSafe(dto.getEpThis()));
+        marketInfo.setEpNext(parseDoubleSafe(dto.getEpNext()));
+
 
         return player;
     }

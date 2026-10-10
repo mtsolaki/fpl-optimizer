@@ -24,4 +24,18 @@ public class PlayerPerformance {
     private Integer bonus;
     private Integer bps;
 
+    private Integer penaltiesSaved;
+    private Integer penaltiesMissed;
+
+    private Integer cbi;
+    private Integer recoveries;
+    private Integer tackles;
+    private Integer defensiveContribution;
+
+    private Double savesPer90;
+    private Double goalsConcededPer90;
+    private Double defensiveContributionPer90;
+
+
+
 }

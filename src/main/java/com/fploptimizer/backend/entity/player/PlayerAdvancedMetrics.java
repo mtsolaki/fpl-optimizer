@@ -26,4 +26,12 @@ public class PlayerAdvancedMetrics {
     private Double expectedGoalInvolvementsPer90;
     private Double expectedGoalsConcededPer90;
 
+    private Double influence;
+    private Double creativity;
+    private Double threat;
+    private Double ictIndex;
+
+
+
+
 }

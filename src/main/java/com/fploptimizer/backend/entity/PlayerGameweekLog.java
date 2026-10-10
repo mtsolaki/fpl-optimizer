@@ -1,25 +1,30 @@
 package com.fploptimizer.backend.entity;
 
+import com.fploptimizer.backend.entity.player.PlayerGameweekOutcome;
+import com.fploptimizer.backend.entity.player.PlayerGameweekProjection;
+import com.fploptimizer.backend.entity.player.PlayerMarketInfo;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "player_gameweek_logs",  uniqueConstraints = {
+@Table(name = "player_gameweek_logs", uniqueConstraints = {
         @UniqueConstraint(name = "uk_player_fixture_season",
-        columnNames = {"player_id","fixture_id","season"})
+                columnNames = {"player_code", "fixture_id", "season"})
 })
 @Getter
 @Setter
 @NoArgsConstructor
 public class PlayerGameweekLog {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private Long id;
 
+    // Connect with Universal Player Code
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "player_id", nullable = false)
+    @JoinColumn(name = "player_code", nullable = false)
     private Player player;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -30,41 +35,37 @@ public class PlayerGameweekLog {
     @JoinColumn(name = "gameweek_id", nullable = false)
     private Gameweek gameweek;
 
+    // Wights used for projections
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "algorithm_weight_id")
     private AlgorithmWeight algorithmWeight;
 
     @Column(nullable = false)
-    private String season; // e.g. 2026-2027
+    private String season; // π.χ. "2026-2027"
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "opponent_team_id")
     private Team opponentTeam;
 
     private Boolean isHome;
-
-    // --- Pre-Match Predictions  ---
-    private Double projectedMinutes;
-    private Double projectedXg;
-    private Double projectedXa;
-    private Double projectedCleanSheetProb;
-    private Double projectedXp;
-
     private Double formAtGw;
     private Integer fixtureDifficulty;
+    private String status;
 
-    // --- Post-Match Outcomes  ---
-    private Integer actualMinutes;
-    private Integer actualGoals;
-    private Integer actualAssists;
-    private Integer actualCleanSheets;
-    private Integer actualGoalsConceded;
-    private Integer actualSaves;
-    private Integer actualBonus;
-    private Integer actualTotalPoints;
-    private Integer actualPenaltiesMissed;
-    private Integer actualPenaltiesSaved;
-    private Integer actualPenaltiesConceded;
+    private Integer penaltiesOrder;
+    private Integer directFreeKicksOrder;
+    private Integer cornersAndIndirectFreeKicksOrder;
 
-    private Double predictionDelta; // actualTotalPoints - projectedXp
+
+    // 1. Snapshot αγοράς / τιμής / διαθεσιμότητας πριν το ματς
+    @Embedded
+    private PlayerMarketInfo marketInfo = new PlayerMarketInfo();
+
+    // 2. Expected Metrics (Υπολογισμένα πριν το ματς)
+    @Embedded
+    private PlayerGameweekProjection projection = new PlayerGameweekProjection();
+
+    // 3. Actual Outcomes (Αποτελέσματα μετά το ματς)
+    @Embedded
+    private PlayerGameweekOutcome outcome = new PlayerGameweekOutcome();
 }

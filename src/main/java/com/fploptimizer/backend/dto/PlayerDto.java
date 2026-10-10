@@ -7,7 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 /*
     DTO's show the exact formation of the incoming JSON file.
-    Used' between the DB and the JSON
+    Used' between the DB and the JSON to take the exact data we need.
+
  */
 @Getter
 @Setter
@@ -18,6 +19,7 @@ public class PlayerDto {
     @JsonProperty("id")
     private int id;
 
+    private int code;
     @JsonProperty("web_name")
     private String webName;
     @JsonProperty("first_name")
@@ -31,6 +33,15 @@ public class PlayerDto {
     private String status;
     @JsonProperty("team")
     private Integer teamId;
+
+    @JsonProperty("penalties_order")
+    private Integer penaltiesOrder;
+
+    @JsonProperty("direct_freekicks_order")
+    private Integer directFreekicksOrder;
+
+    @JsonProperty("corners_and_indirect_freekicks_order")
+    private Integer cornersAndIndirectFreekicksOrder;
 
     // --- Performance Metrics ---
     private Integer minutes;
@@ -56,10 +67,33 @@ public class PlayerDto {
     private Integer saves;
     private Integer bonus;
     private Integer bps;
+
+    @JsonProperty("penalties_saved")
+    private Integer penaltiesSaved;
+    @JsonProperty("penalties_missed")
+    private Integer penaltiesMissed;
+    @JsonProperty("clearances_blocks_interceptions")
+    private Integer cbi;
+
+    private Integer recoveries;
+    private Integer tackles;
+
+    @JsonProperty("defensive_contribution")
+    private Integer defensiveContribution;
+
+    @JsonProperty("saves_per_90")
+    private Double savesPer90;
+
+    @JsonProperty("goals_conceded_per_90")
+    private Double goalsConcededPer90;
+
+    @JsonProperty("defensive_contribution_per_90")
+    private Double defensiveContributionPer90;
+
     // --- Advanced Metrics ---
 
     @JsonProperty("form")
-    private Double form;
+    private String form;
 
     @JsonProperty("expected_goals")
     private String expectedGoals;
@@ -85,6 +119,13 @@ public class PlayerDto {
     @JsonProperty("expected_goals_conceded_per_90")
     private String expectedGoalsConcededPer90;
 
+    private String influence;
+    private String creativity;
+    private String threat;
+
+    @JsonProperty("ict_index")
+    private String ictIndex;
+
 
     // --- MarketInfo ---
     @JsonProperty("now_cost")
@@ -93,13 +134,26 @@ public class PlayerDto {
     @JsonProperty("selected_by_percent")
     private String selectedByPercent;
 
+    @JsonProperty("transfers_in")
+    private Integer transfersIn;
+    @JsonProperty("transfers_out")
+    private Integer transfersOut;
+    @JsonProperty("transfers_in_event")
+    private Integer transfersInGameweek;
+    @JsonProperty("transfers_out_event")
+    private Integer transfersOutGameweek;
+
     private String news;
 
+    @JsonProperty("chance_of_playing_this_round")
+    private Integer chanceOfPlayingThisRound;
     @JsonProperty("chance_of_playing_next_round")
     private Integer chanceOfPlayingNextRound;
 
+    @JsonProperty("ep_this")
+    private String epThis;
     @JsonProperty("ep_next")
-    private Double epNext;
+    private String epNext;
 
 
 

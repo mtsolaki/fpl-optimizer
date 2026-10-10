@@ -20,8 +20,12 @@ import lombok.Setter;
 
 public class Player {
 
-    @Id // Primary key of the table. Taken directly from fpl API - NOT a generated value
+    @Column(unique = true, nullable = false)
     private int id;
+
+    @Id // Primary key of the table. Taken directly from fpl API - NOT a generated value
+    private int code;
+
 
     private String webName;
     private String firstName;
@@ -30,6 +34,11 @@ public class Player {
     @Column(nullable = false)
     private Position position;
     private String status;
+
+    private Integer penaltiesOrder;
+    private Integer directFreeKicksOrder;
+    private Integer cornersAndIndirectFreeKicksOrder;
+
 
     @Embedded
     private PlayerPerformance performance = new PlayerPerformance();
