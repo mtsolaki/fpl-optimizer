@@ -14,7 +14,10 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-
+/*
+    DTO's show the exact formation of the incoming JSON file.
+    Used' between the DB and the JSON
+ */
 public class FplStaticResponseDto {
 
     @JsonProperty("teams")

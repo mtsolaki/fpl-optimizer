@@ -23,15 +23,6 @@ public class TeamDto {
     @JsonProperty("short_name")
     private String shortName;
 
-    @JsonProperty("strength_attack_home")
-    private int attackHome;
-    @JsonProperty("strength_defence_home")
-    private int defenseHome;
-    @JsonProperty("strength_attack_away")
-    private int attackAway;
-    @JsonProperty("strength_defence_away")
-    private int defenseAway;
-
     @JsonProperty("strength_overall_home")
     private Integer strengthOverallHome;
 

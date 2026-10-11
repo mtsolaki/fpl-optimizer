@@ -8,7 +8,9 @@ import com.fploptimizer.backend.entity.player.PlayerAdvancedMetrics;
 import com.fploptimizer.backend.entity.player.PlayerMarketInfo;
 import com.fploptimizer.backend.entity.player.PlayerPerformance;
 import org.springframework.stereotype.Component;
-
+/*
+    Used to map attributes from PlayerDto to Player
+ */
 @Component
 public class PlayerMapper {
 
@@ -91,7 +93,7 @@ public class PlayerMapper {
 
         return player;
     }
-
+    // Safe parsing from String values of JSON to Double for the DB
     private Double parseDoubleSafe(String value) {
         if (value == null || value.trim().isEmpty()) {
             return null;

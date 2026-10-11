@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 
-
+/*
+ Service used to collect all the data for every match for every player
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -86,7 +88,7 @@ public class LiveGameweekSyncService {
 
         outcome.setActualTotalPoints(stats.getTotalPoints());
 
-        // Υπολογισμός σφάλματος μοντέλου: actual - projected
+        // Calculation for model error: actual - projected
         if (stats.getTotalPoints() != null && log.getProjection() != null && log.getProjection().getProjectedXp() != null) {
             outcome.setPredictionDelta(stats.getTotalPoints() - log.getProjection().getProjectedXp());
         }

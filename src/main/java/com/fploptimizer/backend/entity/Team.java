@@ -24,11 +24,9 @@ public class Team {
 
     private String shortName;
 
-    private int attackHome;
-    private int defenseHome;
-    private int attackAway;
-    private int defenseAway;
+    /*
 
+     */
     private Integer strengthOverallHome;
     private Integer strengthOverallAway;
 

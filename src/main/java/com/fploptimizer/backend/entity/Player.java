@@ -30,16 +30,27 @@ public class Player {
     private String webName;
     private String firstName;
     private String lastName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Position position;
+
     private String status;
 
+    /*
+        Used to see if a player is in order for FK.
+        1. First to execute
+        2. Second
+        ... etc ...
+
+     */
     private Integer penaltiesOrder;
     private Integer directFreeKicksOrder;
     private Integer cornersAndIndirectFreeKicksOrder;
 
-
+    /*
+    Εmbedded entities for usability
+     */
     @Embedded
     private PlayerPerformance performance = new PlayerPerformance();
     @Embedded

@@ -20,7 +20,7 @@ public enum Position {
     }
 
     /**
-     * Μετατροπή από το επίσημο FPL element_type ID (1, 2, 3, 4) στο Enum.
+     * Conversion from FPL element_type ID (1, 2, 3, 4) to GKP, DEF, MID, FOR.
      */
     @JsonCreator
     public static Position fromElementTypeId(int elementTypeId) {

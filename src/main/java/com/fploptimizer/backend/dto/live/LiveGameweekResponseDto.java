@@ -7,7 +7,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
-
+/*
+    DTO's show the exact formation of the incoming JSON file.
+    Used' between the DB and the JSON
+ */
 @Getter
 @Setter
 @NoArgsConstructor

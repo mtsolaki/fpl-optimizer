@@ -8,6 +8,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/*
+    Postgres Table "player_gameweek_logs"
+
+    Used to store the snapshot for each fixture.
+    What was going on,
+    what we predicted,
+    what actually happened
+ */
 @Entity
 @Table(name = "player_gameweek_logs", uniqueConstraints = {
         @UniqueConstraint(name = "uk_player_fixture_season",
@@ -35,10 +43,6 @@ public class PlayerGameweekLog {
     @JoinColumn(name = "gameweek_id", nullable = false)
     private Gameweek gameweek;
 
-    // Wights used for projections
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "algorithm_weight_id")
-    private AlgorithmWeight algorithmWeight;
 
     @Column(nullable = false)
     private String season; // π.χ. "2026-2027"

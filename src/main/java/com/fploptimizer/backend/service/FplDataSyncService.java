@@ -18,7 +18,9 @@
 
     import java.util.ArrayList;
     import java.util.List;
-
+    /*
+    Service used for getting the necessary data from JSONs to DBs
+     */
     @Slf4j
     @Service
     @RequiredArgsConstructor
@@ -68,10 +70,6 @@
                 team.setId(dto.getId());
                 team.setName(dto.getName());
                 team.setShortName(dto.getShortName());
-                team.setAttackHome(dto.getAttackHome());
-                team.setDefenseHome(dto.getDefenseHome());
-                team.setAttackAway(dto.getAttackAway());
-                team.setDefenseAway(dto.getDefenseAway());
                 team.setStrengthOverallHome(dto.getStrengthOverallHome());
                 team.setStrengthOverallAway(dto.getStrengthOverallAway());
 

@@ -15,7 +15,10 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor@JsonIgnoreProperties(ignoreUnknown = true)
-
+/*
+    DTO's show the exact formation of the incoming JSON file.
+    Used' between the DB and the JSON
+ */
 public class GameweekDto {
 
     @JsonProperty("id")
