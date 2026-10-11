@@ -5,6 +5,8 @@ public record LeagueStandingsSnapshot(
         Integer points,
         Integer position,
         Integer matchesPlayed,
+        int goalsFor,
+        int goalsAgainst,
         int pointsFromTitle,
         int pointsFromEuropeanSpots,
         int pointsFromRelegationZone

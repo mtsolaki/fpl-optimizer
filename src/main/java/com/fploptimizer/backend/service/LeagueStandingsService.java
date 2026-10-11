@@ -1,4 +1,4 @@
-package com.fploptimizer.backend.service.projection;
+package com.fploptimizer.backend.service;
 
 import com.fploptimizer.backend.entity.Fixture;
 import com.fploptimizer.backend.entity.Team;
@@ -15,12 +15,13 @@ import java.util.*;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+
 public class LeagueStandingsService {
 
     private final TeamRepository teamRepository;
     private final FixtureRepository fixtureRepository;
 
+    @Transactional(readOnly = true)
     public Map<Integer, LeagueStandingsSnapshot> calculateStandingsUpToGameweek(int gameweek) {
 
         List<Team> allTeams = teamRepository.findAll();
@@ -87,6 +88,9 @@ public class LeagueStandingsService {
         private int goalsAgainst;
 
         @Override
+        /*
+        Note: this class has a natural ordering that is inconsistent with equals.
+         */
         public int compareTo(TeamStandingRow other) {
 
             int res = Integer.compare(other.getPoints(), getPoints());
@@ -117,6 +121,8 @@ public class LeagueStandingsService {
                     this.getPoints(),
                     position,
                     this.matchesPlayed,
+                    this.goalsFor,
+                    this.goalsAgainst,
                     getPoints() - pointsTitle,
                     getPoints() -pointsEurope,
                     getPoints() - pointsRelegation);
