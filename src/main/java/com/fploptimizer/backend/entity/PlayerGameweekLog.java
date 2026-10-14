@@ -61,15 +61,15 @@ public class PlayerGameweekLog {
     private Integer cornersAndIndirectFreeKicksOrder;
 
 
-    // 1. Snapshot αγοράς / τιμής / διαθεσιμότητας πριν το ματς
+    // 1. Snapshot market / price / before match
     @Embedded
     private PlayerMarketInfo marketInfo = new PlayerMarketInfo();
 
-    // 2. Expected Metrics (Υπολογισμένα πριν το ματς)
+    // 2. Expected Metrics / Calculated before match
     @Embedded
     private PlayerGameweekProjection projection = new PlayerGameweekProjection();
 
-    // 3. Actual Outcomes (Αποτελέσματα μετά το ματς)
+    // 3. Actual Outcomes / Results after match
     @Embedded
     private PlayerGameweekOutcome outcome = new PlayerGameweekOutcome();
 }

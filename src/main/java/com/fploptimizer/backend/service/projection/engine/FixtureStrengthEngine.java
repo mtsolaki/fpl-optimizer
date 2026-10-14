@@ -70,7 +70,7 @@ public class FixtureStrengthEngine {
         double homeLambda = Math.clamp(rawHomeLambda, MIN_LAMBDA, MAX_LAMBDA);
         double awayLambda = Math.clamp(rawAwayLambda, MIN_LAMBDA, MAX_LAMBDA);
 
-        // 6. Clean Sheet Probabilities (P(X=0) = e^(-lambda))
+        // 6. Clean Sheet Probabilities (P(X=0) = e^(-expectedGoals))
         double homeCsProb = Math.exp(-awayLambda);
         double awayCsProb = Math.exp(-homeLambda);
 

@@ -115,7 +115,7 @@ public class FixtureProjectionService {
                 .homeMotivation(home.motivationMultiplier())
                 .homeFinalAttack(home.finalAttackStrength())
                 .homeFinalDefense(home.finalDefenseStrength())
-                .homeLambda(home.lambda())
+                .homeLambda(home.expectedGoals())
                 .homeCleanSheetProb(home.cleanSheetProbability())
                 // Away metrics
                 .awayBaseAttack(away.baseAttackRating())
@@ -125,7 +125,7 @@ public class FixtureProjectionService {
                 .awayMotivation(away.motivationMultiplier())
                 .awayFinalAttack(away.finalAttackStrength())
                 .awayFinalDefense(away.finalDefenseStrength())
-                .awayLambda(away.lambda())
+                .awayLambda(away.expectedGoals())
                 .awayCleanSheetProb(away.cleanSheetProbability())
                 .build();
 
@@ -134,8 +134,8 @@ public class FixtureProjectionService {
                 && fixture.getHomeTeamScore() != null
                 && fixture.getAwayTeamScore() != null) {
 
-            projection.setHomeGoalsDelta(fixture.getHomeTeamScore() - home.lambda());
-            projection.setAwayGoalsDelta(fixture.getAwayTeamScore() - away.lambda());
+            projection.setHomeGoalsDelta(fixture.getHomeTeamScore() - home.expectedGoals());
+            projection.setAwayGoalsDelta(fixture.getAwayTeamScore() - away.expectedGoals());
             projection.setHomeCsHit(fixture.getAwayTeamScore() == 0);
             projection.setAwayCsHit(fixture.getHomeTeamScore() == 0);
         }

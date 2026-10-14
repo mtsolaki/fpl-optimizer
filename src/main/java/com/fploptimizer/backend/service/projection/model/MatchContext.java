@@ -34,9 +34,9 @@ public record MatchContext(
     public double getExpectedGoalsForTeam(int teamId)
     {
         if (teamId == homeProjection.teamId()){
-            return homeProjection.lambda();
+            return homeProjection.expectedGoals();
         } else if (teamId == awayProjection.teamId()){
-            return awayProjection.lambda();
+            return awayProjection.expectedGoals();
         }else {
             throw new IllegalArgumentException("Team ID " + teamId + " does not belong to fixture " + fixtureId);
         }
@@ -45,9 +45,9 @@ public record MatchContext(
     public double getExpectedGoalsAgainstTeam(int teamId)
     {
         if (teamId == homeProjection.teamId()){
-            return awayProjection.lambda();
+            return awayProjection.expectedGoals();
         }else if (teamId == awayProjection.teamId()){
-            return homeProjection.lambda();
+            return homeProjection.expectedGoals();
         }else {
             throw new IllegalArgumentException("Team ID " + teamId + " does not belong to fixture " + fixtureId);
         }

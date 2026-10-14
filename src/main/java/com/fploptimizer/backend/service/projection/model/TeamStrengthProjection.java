@@ -9,7 +9,7 @@ public record TeamStrengthProjection(
         double motivationMultiplier,
         double finalAttackStrength,
         double finalDefenseStrength,
-        double lambda,
+        double expectedGoals,
         double expectedGoalsConceded,
         double cleanSheetProbability
 ) {
