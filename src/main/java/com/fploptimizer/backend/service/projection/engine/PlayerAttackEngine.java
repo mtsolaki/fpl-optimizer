@@ -22,6 +22,13 @@ public class PlayerAttackEngine {
     private static final double PRIOR_XA_MID = 0.18;
     private static final double PRIOR_XA_DEF = 0.08;
 
+    // Hard statistical ceilings to eliminate API anomalies/glitches
+    private static final double MAX_REALISTIC_XG_PER_90 = 1.15;
+    private static final double MAX_REALISTIC_XA_PER_90 = 0.70;
+
+    // Minimum minutes in current season before trusting raw per90 stats
+    private static final double MIN_SEASON_SAMPLE_MINUTES = 270.0;
+
     // Average premier league team xG
     private static final double LEAGUE_AVG_TEAM_XG = 1.35;
 
@@ -36,8 +43,9 @@ public class PlayerAttackEngine {
             return new PlayerAttackResult(0.0, 0.0,0.0);
         }
 
-        double attackFactor = teamProjection.expectedGoals() / LEAGUE_AVG_TEAM_XG;
-        attackFactor = Math.clamp(attackFactor, 0.2, 2.5);
+        double rawRatio = teamProjection.expectedGoals() / LEAGUE_AVG_TEAM_XG;
+        double attackFactor = Math.sqrt(rawRatio);
+        attackFactor = Math.clamp(attackFactor, 0.6, 1.5);
 
         // Seasonal xGper90
         double seasonxGper90 = resolveExpectedGoalsPer90(player);
@@ -75,8 +83,8 @@ public class PlayerAttackEngine {
             finalXaPer90 = seasonxAper90;
         } else {
             double weight = MAX_RECENT_WEIGHT * Math.min(1.0, totalRecentMinutes / SAMPLE_MINUTES_THRESHOLD);
-            double recentXgPer90 = (totalRecentXG / totalRecentMinutes) * 90.0;
-            double recentXAPer90 = (totalRecentXA / totalRecentMinutes) * 90.0;
+            double recentXgPer90 = Math.min((totalRecentXG / totalRecentMinutes) * 90.0, MAX_REALISTIC_XG_PER_90);
+            double recentXAPer90 = Math.min((totalRecentXA / totalRecentMinutes) * 90.0, MAX_REALISTIC_XA_PER_90);
 
             finalXgPer90 = (1.0 - weight) * seasonxGper90 + weight * recentXgPer90;
             finalXaPer90 = (1.0 - weight) * seasonxAper90 + weight * recentXAPer90;
@@ -92,59 +100,80 @@ public class PlayerAttackEngine {
     /*
      Function to get xGPer90 in case we don't have the necessary information. Using PL average per position
      */
-    private double resolveExpectedGoalsPer90(Player player){
+    private double resolveExpectedGoalsPer90(Player player) {
+        if (player == null) return 0.0;
 
-        if (player == null ){
-            return 0.0;
-        }
-        if (player.getAdvancedMetrics() != null && (player.getAdvancedMetrics().getExpectedGoalsPer90() != null && player.getAdvancedMetrics().getExpectedGoalsPer90() > 0.00)){
-            return player.getAdvancedMetrics().getExpectedGoalsPer90();
-        }else if(player.getPosition()!= null){
-            switch (player.getPosition()){
-                case GKP -> {
-                    return 0.00;
-                }
-                case DEF ->  {
-                    return PRIOR_XG_DEF;
-                }
-                case MID ->   {
-                    return PRIOR_XG_MID;
-                }
-                case FWD -> {
-                    return PRIOR_XG_FWD;
-                }
+        double prior = getPriorXG(player);
 
+        if (player.getAdvancedMetrics() != null
+                && player.getAdvancedMetrics().getExpectedGoalsPer90() != null
+                && player.getPerformance() != null
+                && player.getPerformance().getMinutes() != null) {
+
+            double seasonMinutes = player.getPerformance().getMinutes();
+            double rawPer90 = player.getAdvancedMetrics().getExpectedGoalsPer90();
+
+            // Αν δεν έχει παίξει ουσιαστικά καθόλου, εμπιστευόμαστε 100% το prior
+            if (seasonMinutes < 45.0) {
+                return prior;
             }
+
+            // Clamping στο realistic ceiling πριν το blend
+            rawPer90 = Math.clamp(rawPer90, 0.0, MAX_REALISTIC_XG_PER_90);
+
+            // Bayesian Shrinkage προς το prior αναλογικά με τα λεπτά συμμετοχής
+            double weight = Math.min(1.0, seasonMinutes / MIN_SEASON_SAMPLE_MINUTES);
+            return (weight * rawPer90) + ((1.0 - weight) * prior);
         }
-        return 0.0;
+
+        return prior;
     }
     /*
      Function to get xAPer90 in case we don't have the necessary information. Using PL average per position
      */
-    private double resolveExpectedAssistsPer90(Player player){
+    private double resolveExpectedAssistsPer90(Player player) {
+        if (player == null) return 0.0;
 
-        if (player == null){
-            return 0.0;
-        }
-        if (player.getAdvancedMetrics() != null && (player.getAdvancedMetrics().getExpectedAssistsPer90() != null && player.getAdvancedMetrics().getExpectedAssistsPer90() >  0.00)){
-            return player.getAdvancedMetrics().getExpectedAssistsPer90();
-        }else if(player.getPosition()!= null){
-            switch (player.getPosition()){
-                case GKP -> {
-                    return 0.00;
-                }
-                case DEF ->  {
-                    return PRIOR_XA_DEF;
-                }
-                case MID ->   {
-                    return PRIOR_XA_MID;
-                }
-                case FWD -> {
-                    return PRIOR_XA_FWD;
-                }
+        double prior = getPriorXA(player);
 
+        if (player.getAdvancedMetrics() != null
+                && player.getAdvancedMetrics().getExpectedAssistsPer90() != null
+                && player.getPerformance() != null
+                && player.getPerformance().getMinutes() != null) {
+
+            double seasonMinutes = player.getPerformance().getMinutes();
+            double rawPer90 = player.getAdvancedMetrics().getExpectedAssistsPer90();
+
+            if (seasonMinutes < 45.0) {
+                return prior;
             }
+
+            rawPer90 = Math.clamp(rawPer90, 0.0, MAX_REALISTIC_XA_PER_90);
+
+            double weight = Math.min(1.0, seasonMinutes / MIN_SEASON_SAMPLE_MINUTES);
+            return (weight * rawPer90) + ((1.0 - weight) * prior);
         }
-        return 0.0;
+
+        return prior;
+    }
+
+    private double getPriorXG(Player player) {
+        if (player.getPosition() == null) return 0.0;
+        return switch (player.getPosition()) {
+            case FWD -> PRIOR_XG_FWD;
+            case MID -> PRIOR_XG_MID;
+            case DEF -> PRIOR_XG_DEF;
+            case GKP -> 0.0;
+        };
+    }
+
+    private double getPriorXA(Player player) {
+        if (player.getPosition() == null) return 0.0;
+        return switch (player.getPosition()) {
+            case FWD -> PRIOR_XA_FWD;
+            case MID -> PRIOR_XA_MID;
+            case DEF -> PRIOR_XA_DEF;
+            case GKP -> 0.0;
+        };
     }
 }

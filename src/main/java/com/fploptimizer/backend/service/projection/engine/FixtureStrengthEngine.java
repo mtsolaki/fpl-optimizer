@@ -6,11 +6,13 @@ import com.fploptimizer.backend.service.projection.model.LeagueStandingsSnapshot
 import com.fploptimizer.backend.service.projection.model.LineupDegradation;
 import com.fploptimizer.backend.service.projection.model.MatchContext;
 import com.fploptimizer.backend.service.projection.model.TeamStrengthProjection;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class FixtureStrengthEngine {
 
     // Historical home and away averages
@@ -28,8 +30,8 @@ public class FixtureStrengthEngine {
     private static final double MAX_BASE_RATING = 1.60;
     private static final int SHRINKAGE_PRIOR_WEIGHT = 10;
 
-    private LineupDegradationEngine lineupDegradationEngine;
-    private MatchStakesEngine matchStakesEngine;
+    private final LineupDegradationEngine lineupDegradationEngine;
+    private final MatchStakesEngine matchStakesEngine;
 
     public MatchContext buildMatchContext(
             int fixtureId,

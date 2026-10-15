@@ -56,6 +56,8 @@ public class PlayerMapper {
         performance.setSavesPer90(dto.getSavesPer90());
         performance.setGoalsConcededPer90(dto.getGoalsConcededPer90());
         performance.setDefensiveContributionPer90(dto.getDefensiveContributionPer90());
+        performance.setYellowCards(dto.getYellowCards());
+        performance.setRedCards(dto.getRedCards());
 
         // 3. Advanced Expected Metrics
         PlayerAdvancedMetrics advancedMetrics = player.getAdvancedMetrics();

@@ -4,7 +4,7 @@ public record PlayerDefenceResult(
         double cleanSheetProbability, // P (CS)
         double expectedGoalsConceded, // l_gc
         double expectedConcededGoalsDeduction, // Expected blocks of 2 goals
-        double expectedSaves, // l_saves for GKP
+        double projectedSaves, // l_saves for GKP
         double projectedDefCon, // expected defCon
         double projectedDefConProb // P( DefCon >= 10 )
 ) {

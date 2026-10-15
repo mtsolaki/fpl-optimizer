@@ -29,8 +29,8 @@ public  class PlayerGameweekProjection {
     // --- Saves & Discipline ---
     private Double projectedSaves;
 
-
-    private Double projectedCardsProb;
+    private Double projectedYellowCardsProb;
+    private Double projectedRedCardsProb;
 
     // ---  ---
     private Double projectedBonus;

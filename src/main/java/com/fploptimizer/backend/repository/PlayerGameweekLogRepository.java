@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface PlayerGameweekLogRepository extends JpaRepository<PlayerGameweekLog, Integer> {
@@ -30,4 +31,20 @@ public interface PlayerGameweekLogRepository extends JpaRepository<PlayerGamewee
     );
 
     Optional<List<PlayerGameweekLog>> findByPlayerId(Integer fplPlayerId);
+
+    @Query("""
+    SELECT DISTINCT l.gameweek.id
+    FROM PlayerGameweekLog l
+    WHERE l.outcome.actualTotalPoints IS NOT NULL
+""")
+    Set<Integer> findSettledGameweekIds();
+
+    @Query("""
+    SELECT l FROM PlayerGameweekLog l
+    WHERE l.outcome.actualTotalPoints IS NOT NULL
+      AND l.gameweek.id < :upcomingGwId
+""")
+    List<PlayerGameweekLog> findAllSettledLogsUpToGameweek(@Param("upcomingGwId") int upcomingGwId);
+
+
 }

@@ -90,6 +90,12 @@ public class PlayerDto {
     @JsonProperty("defensive_contribution_per_90")
     private Double defensiveContributionPer90;
 
+    @JsonProperty("yellow_cards")
+    private Integer yellowCards;
+
+    @JsonProperty("red_cards")
+    private Integer redCards;
+
     // --- Advanced Metrics ---
 
     @JsonProperty("form")

@@ -139,7 +139,7 @@ public class PlayerDefenceEngine {
             return seasonRatePer90;
         }
 
-        // reccent Rate per 90
+        // recent Rate per 90
         double recentRatePer90 = (totalRecentMetric / totalRecentMinutes) * 90.0;
 
         // Dynamic weight depending recent minutes

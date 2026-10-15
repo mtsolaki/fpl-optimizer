@@ -29,8 +29,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FixtureProjectionService {
 
-    private LeagueStandingsService leagueStandingsService;
-    private FixtureStrengthEngine fixtureStrengthEngine;
+    private final LeagueStandingsService leagueStandingsService;
+    private final FixtureStrengthEngine fixtureStrengthEngine;
 
     private final FixtureRepository fixtureRepository;
     private final PlayerRepository  playerRepository;
@@ -39,9 +39,9 @@ public class FixtureProjectionService {
 
 
 
-    public List<FixtureProjection> calculateAndPersistProjections(int gameweek){
+    public List<FixtureProjection> calculateAndPersistProjections(int gameweek) {
         log.info("Starting projection calculation for gameweek: {}", gameweek);
-        Map <Integer, LeagueStandingsSnapshot> standings = leagueStandingsService.calculateStandingsUpToGameweek(gameweek);
+        Map<Integer, LeagueStandingsSnapshot> standings = leagueStandingsService.calculateStandingsUpToGameweek(gameweek);
 
         List<Fixture> fixtures = fixtureRepository.findByGameweek(gameweek);
         if (fixtures.isEmpty()) {
@@ -54,6 +54,11 @@ public class FixtureProjectionService {
         Map<Integer, List<Player>> playersByTeam = allPlayers.stream()
                 .filter(p -> p.getTeam() != null)
                 .collect(Collectors.groupingBy(p -> p.getTeam().getId()));
+
+        // Προ-φόρτωση υπαρχόντων projections για την αποφυγή conflict με το @MapsId
+        Map<Integer, FixtureProjection> existingProjections = fixtureProjectionRepository.findAllById(
+                fixtures.stream().map(Fixture::getId).toList()
+        ).stream().collect(Collectors.toMap(FixtureProjection::getId, fp -> fp));
 
         List<FixtureProjection> projectionsToSave = new ArrayList<>();
 
@@ -74,7 +79,6 @@ public class FixtureProjectionService {
             LeagueStandingsSnapshot homeStandings = standings.get(homeId);
             LeagueStandingsSnapshot awayStandings = standings.get(awayId);
 
-
             // Execute Poisson model
             MatchContext matchContext = fixtureStrengthEngine.buildMatchContext(
                     fixture.getId(),
@@ -87,49 +91,51 @@ public class FixtureProjectionService {
                     awayStandings
             );
 
-            FixtureProjection projection = mapToEntity(fixture, gameweek, matchContext);
+            // Εύρεση υπάρχοντος ή δημιουργία νέου
+            FixtureProjection projection = existingProjections.getOrDefault(fixture.getId(), new FixtureProjection());
+            populateProjection(projection, fixture, gameweek, matchContext);
             projectionsToSave.add(projection);
         }
+
         List<FixtureProjection> savedProjections = fixtureProjectionRepository.saveAll(projectionsToSave);
         log.info("Successfully persisted {} projections for gameweek: {}", savedProjections.size(), gameweek);
 
         return savedProjections;
-
-
     }
-    private FixtureProjection mapToEntity(Fixture fixture, int gameweek, MatchContext context) {
+
+    private void populateProjection(FixtureProjection projection, Fixture fixture, int gameweek, MatchContext context) {
         TeamStrengthProjection home = context.homeProjection();
         TeamStrengthProjection away = context.awayProjection();
 
-        FixtureProjection projection = FixtureProjection.builder()
-                .id(fixture.getId())
-                .fixture(fixture)
-                .gameweek(gameweek)
-                .homeTeam(fixture.getHomeTeam())
-                .awayTeam(fixture.getAwayTeam())
-                // Home metrics
-                .homeBaseAttack(home.baseAttackRating())
-                .homeBaseDefense(home.baseDefenseRating())
-                .homeAttackDegradation(home.attackDegradation())
-                .homeDefenseDegradation(home.defenseDegradation())
-                .homeMotivation(home.motivationMultiplier())
-                .homeFinalAttack(home.finalAttackStrength())
-                .homeFinalDefense(home.finalDefenseStrength())
-                .homeLambda(home.expectedGoals())
-                .homeCleanSheetProb(home.cleanSheetProbability())
-                // Away metrics
-                .awayBaseAttack(away.baseAttackRating())
-                .awayBaseDefense(away.baseDefenseRating())
-                .awayAttackDegradation(away.attackDegradation())
-                .awayDefenseDegradation(away.defenseDegradation())
-                .awayMotivation(away.motivationMultiplier())
-                .awayFinalAttack(away.finalAttackStrength())
-                .awayFinalDefense(away.finalDefenseStrength())
-                .awayLambda(away.expectedGoals())
-                .awayCleanSheetProb(away.cleanSheetProbability())
-                .build();
+        // Το fixture θέτει αυτόματα το id μέσω του @MapsId
+        projection.setFixture(fixture);
+        projection.setGameweek(gameweek);
+        projection.setHomeTeam(fixture.getHomeTeam());
+        projection.setAwayTeam(fixture.getAwayTeam());
 
-        // In case match is finished , we calculate post-match metrics
+        // Home metrics
+        projection.setHomeBaseAttack(home.baseAttackRating());
+        projection.setHomeBaseDefense(home.baseDefenseRating());
+        projection.setHomeAttackDegradation(home.attackDegradation());
+        projection.setHomeDefenseDegradation(home.defenseDegradation());
+        projection.setHomeMotivation(home.motivationMultiplier());
+        projection.setHomeFinalAttack(home.finalAttackStrength());
+        projection.setHomeFinalDefense(home.finalDefenseStrength());
+        projection.setHomeLambda(home.expectedGoals());
+        projection.setHomeCleanSheetProb(home.cleanSheetProbability());
+
+        // Away metrics
+        projection.setAwayBaseAttack(away.baseAttackRating());
+        projection.setAwayBaseDefense(away.baseDefenseRating());
+        projection.setAwayAttackDegradation(away.attackDegradation());
+        projection.setAwayDefenseDegradation(away.defenseDegradation());
+        projection.setAwayMotivation(away.motivationMultiplier());
+        projection.setAwayFinalAttack(away.finalAttackStrength());
+        projection.setAwayFinalDefense(away.finalDefenseStrength());
+        projection.setAwayLambda(away.expectedGoals());
+        projection.setAwayCleanSheetProb(away.cleanSheetProbability());
+
+        // Post-match evaluation metrics
         if (Boolean.TRUE.equals(fixture.getFinished())
                 && fixture.getHomeTeamScore() != null
                 && fixture.getAwayTeamScore() != null) {
@@ -139,8 +145,6 @@ public class FixtureProjectionService {
             projection.setHomeCsHit(fixture.getAwayTeamScore() == 0);
             projection.setAwayCsHit(fixture.getHomeTeamScore() == 0);
         }
-
-        return projection;
     }
 
 }

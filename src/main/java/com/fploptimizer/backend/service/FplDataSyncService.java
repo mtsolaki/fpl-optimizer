@@ -33,7 +33,7 @@
         private final PlayerMapper playerMapper;
         private final GameweekRepository gameweekRepository;
 
-        @PostConstruct // This function is executed automatically once - when Spring Context is initialized
+        //@PostConstruct // This function is executed automatically once - when Spring Context is initialized
         public void fetchStaticData()
         {
             String url = "https://fantasy.premierleague.com/api/bootstrap-static/";

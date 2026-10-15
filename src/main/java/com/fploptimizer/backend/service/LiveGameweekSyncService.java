@@ -3,19 +3,26 @@ package com.fploptimizer.backend.service;
 import com.fploptimizer.backend.dto.live.LiveElementDto;
 import com.fploptimizer.backend.dto.live.LiveGameweekResponseDto;
 import com.fploptimizer.backend.dto.live.LiveStatsDto;
+import com.fploptimizer.backend.entity.Fixture;
+import com.fploptimizer.backend.entity.Gameweek;
+import com.fploptimizer.backend.entity.Player;
 import com.fploptimizer.backend.entity.PlayerGameweekLog;
 import com.fploptimizer.backend.entity.player.PlayerGameweekOutcome;
-
+import com.fploptimizer.backend.repository.FixtureRepository;
+import com.fploptimizer.backend.repository.GameweekRepository;
 import com.fploptimizer.backend.repository.PlayerGameweekLogRepository;
+import com.fploptimizer.backend.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.List;
 
-/*
- Service used to collect all the data for every match for every player
+/**
+ * Service used to collect and synchronize live/actual match statistics for every player.
  */
 @Service
 @RequiredArgsConstructor
@@ -24,32 +31,58 @@ public class LiveGameweekSyncService {
 
     private final RestTemplate restTemplate;
     private final PlayerGameweekLogRepository logRepository;
-
+    private final PlayerRepository playerRepository;
+    private final FixtureRepository fixtureRepository;
+    private final GameweekRepository gameweekRepository;
 
     @Transactional
     public void syncEntireGameweek(int gameweekId, String season) {
         String url = "https://fantasy.premierleague.com/api/event/" + gameweekId + "/live/";
+
+        log.info("Fetching live stats for GW {} from: {}", gameweekId, url);
         LiveGameweekResponseDto response = restTemplate.getForObject(url, LiveGameweekResponseDto.class);
 
         if (response == null || response.getElements() == null) {
+            log.warn("No element data found for gameweek: {}", gameweekId);
             return;
         }
 
+        // Fetch Gameweek entity once per batch
+        Gameweek gameweek = gameweekRepository.findById(gameweekId).orElse(null);
+
+        List<PlayerGameweekLog> logsToSave = new ArrayList<>();
+
         for (LiveElementDto element : response.getElements()) {
             if (element.getExplain() == null || element.getExplain().isEmpty()) {
-                continue; // Blank Gameweek
+                continue; // Blank Gameweek for this player
             }
 
-            // Get FixtureId from explainObject
-
             Integer fixtureId = element.getExplain().getFirst().getFixtureId();
+            if (fixtureId == null) {
+                continue;
+            }
 
-            // 1 find & update
-            logRepository.findByFplPlayerIdAndFixtureIdAndSeason(element.getId(), fixtureId, season)
-                    .ifPresent(logEntry -> {
-                        mapStatsToOutcome(element.getStats(), logEntry);
-                        logRepository.save(logEntry);
-                    });
+            int fplPlayerId = element.getId();
+
+            // 1. Find existing log or create a new one (e.g. historical backfill)
+            PlayerGameweekLog logEntry = logRepository
+                    .findByFplPlayerIdAndFixtureIdAndSeason(fplPlayerId, fixtureId, season)
+                    .orElseGet(() -> createNewLog(fplPlayerId, fixtureId, gameweek, season));
+
+            if (logEntry == null) {
+                // Skip safely if player or fixture is not found in database
+                continue;
+            }
+
+            // 2. Map incoming statistics to the embedded Outcome
+            mapStatsToOutcome(element.getStats(), logEntry);
+            logsToSave.add(logEntry);
+        }
+
+        // 3. Batch upsert
+        if (!logsToSave.isEmpty()) {
+            logRepository.saveAll(logsToSave);
+            log.info("Successfully persisted {} logs/outcomes for GW {}", logsToSave.size(), gameweekId);
         }
     }
 
@@ -80,7 +113,6 @@ public class LiveGameweekSyncService {
         outcome.setActualPenaltiesMissed(stats.getPenaltiesMissed());
         outcome.setActualPenaltiesSaved(stats.getPenaltiesSaved());
 
-
         // Safe double parsing for Opta Advanced Metrics
         outcome.setActualXg(parseDouble(stats.getExpectedGoals()));
         outcome.setActualXa(parseDouble(stats.getExpectedAssists()));
@@ -88,10 +120,44 @@ public class LiveGameweekSyncService {
 
         outcome.setActualTotalPoints(stats.getTotalPoints());
 
-        // Calculation for model error: actual - projected
-        if (stats.getTotalPoints() != null && log.getProjection() != null && log.getProjection().getProjectedXp() != null) {
+        // Calculate model error: actual - projected
+        if (stats.getTotalPoints() != null
+                && log.getProjection() != null
+                && log.getProjection().getProjectedXp() != null) {
             outcome.setPredictionDelta(stats.getTotalPoints() - log.getProjection().getProjectedXp());
         }
+    }
+
+    private PlayerGameweekLog createNewLog(int fplPlayerId, int fixtureId, Gameweek gameweek, String season) {
+        Player player = playerRepository.findByFplId(fplPlayerId).orElse(null);
+        Fixture fixture = fixtureRepository.findById(fixtureId).orElse(null);
+
+        if (player == null || fixture == null) {
+            log.warn("Entity not found: player (id: {}) or fixture (id: {})", fplPlayerId, fixtureId);
+            return null;
+        }
+
+        PlayerGameweekLog newLog = new PlayerGameweekLog();
+        newLog.setPlayer(player);
+        newLog.setFixture(fixture);
+        newLog.setGameweek(gameweek);
+        newLog.setSeason(season);
+
+        // Determine home/away context and opponent
+        boolean isHome = player.getTeam() != null && fixture.getHomeTeam() != null
+                && player.getTeam().getId() == fixture.getHomeTeam().getId();
+
+        newLog.setIsHome(isHome);
+        newLog.setOpponentTeam(isHome ? fixture.getAwayTeam() : fixture.getHomeTeam());
+        newLog.setFixtureDifficulty(isHome ? fixture.getHomeTeamDifficulty() : fixture.getAwayTeamDifficulty());
+
+        // Snapshot player metadata
+        newLog.setStatus(player.getStatus());
+        newLog.setPenaltiesOrder(player.getPenaltiesOrder());
+        newLog.setDirectFreeKicksOrder(player.getDirectFreeKicksOrder());
+        newLog.setCornersAndIndirectFreeKicksOrder(player.getCornersAndIndirectFreeKicksOrder());
+
+        return newLog;
     }
 
     private Double parseDouble(String value) {

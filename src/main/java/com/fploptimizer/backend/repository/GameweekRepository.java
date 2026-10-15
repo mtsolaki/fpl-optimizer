@@ -9,4 +9,5 @@ public interface GameweekRepository extends JpaRepository<Gameweek, Integer> {
 
 
     Optional<Gameweek> findByIsNextTrue();
+    Optional<Gameweek> findById(int id);
 }

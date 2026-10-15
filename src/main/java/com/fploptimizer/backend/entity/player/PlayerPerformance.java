@@ -36,6 +36,9 @@ public class PlayerPerformance {
     private Double goalsConcededPer90;
     private Double defensiveContributionPer90;
 
+    private Integer yellowCards;
+    private Integer redCards;
+
 
 
 }
