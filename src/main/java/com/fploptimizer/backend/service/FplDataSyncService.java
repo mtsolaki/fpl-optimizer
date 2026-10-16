@@ -1,6 +1,6 @@
     package com.fploptimizer.backend.service;
 
-    import com.fploptimizer.backend.Client.FplApiClient;
+    import com.fploptimizer.backend.client.FplApiClient;
     import com.fploptimizer.backend.dto.*;
     import com.fploptimizer.backend.entity.Fixture;
     import com.fploptimizer.backend.entity.Gameweek;

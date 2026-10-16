@@ -87,7 +87,7 @@ fpl-optimizer/
 ├── .env.example
 └── src/
     ├── main/java/com/fploptimizer/backend/
-    │   ├── Client/          # FplApiClient: Integration with FPL REST endpoints
+    │   ├── client/          # FplApiClient: Integration with FPL REST endpoints
     │   ├── config/          # Spring beans, WebClient & async execution setup
     │   ├── controller/      # REST API exposure (UserTeamAdvisorController)
     │   ├── dto/             # Request & response transfer objects (advisor, live, projection)
@@ -120,7 +120,6 @@ cd fpl-optimizer
 ### 2. Configure environment
 ```bash
 cp .env.example .env
-docker compose up --build -d
 ```
 
 ### 3. Build & Run

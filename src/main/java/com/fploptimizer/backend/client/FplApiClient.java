@@ -1,4 +1,4 @@
-package com.fploptimizer.backend.Client;
+package com.fploptimizer.backend.client;
 
 import com.fploptimizer.backend.dto.FixtureDto;
 import com.fploptimizer.backend.dto.FplStaticResponseDto;

@@ -1,6 +1,6 @@
 package com.fploptimizer.backend.service;
 
-import com.fploptimizer.backend.Client.FplApiClient;
+import com.fploptimizer.backend.client.FplApiClient;
 import com.fploptimizer.backend.dto.FplUserPicksResponse;
 import com.fploptimizer.backend.dto.advisor.UserLineupResponseDto;
 import com.fploptimizer.backend.entity.*;
