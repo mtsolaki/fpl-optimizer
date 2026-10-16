@@ -4,7 +4,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen.svg?logo=springboot)](https://spring.io/projects/spring-boot)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg?logo=postgresql)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?logo=docker)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-grey.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-grey.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 
 > ⚠️ **Project Status: Active Development (Work in Progress)**  
@@ -206,4 +206,4 @@ Run the test suite covering the optimization logic, VFM ranking, and controller 
 - [ ] **Live Gameweek Rank Simulator:** Real-time auto-subs, provisional bonus calculation, and live rank forecasting.
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the GNU AGPLv3 Licence - see the LICENSE file for details.
