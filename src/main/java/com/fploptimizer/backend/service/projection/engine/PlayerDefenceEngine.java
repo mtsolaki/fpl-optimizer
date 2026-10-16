@@ -102,7 +102,7 @@ public class PlayerDefenceEngine {
             return 0.0;
         }
 
-        // Αν το πεδίο βρίσκεται στο player (ή στο player.getAdvancedMetrics())
+
         if (player.getPerformance() != null  && player.getPerformance().getSavesPer90() != null && player.getPerformance().getSavesPer90()> 0.0) {
             return player.getPerformance().getSavesPer90();
         }

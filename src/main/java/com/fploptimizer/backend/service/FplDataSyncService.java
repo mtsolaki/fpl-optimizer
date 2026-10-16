@@ -1,5 +1,6 @@
     package com.fploptimizer.backend.service;
 
+    import com.fploptimizer.backend.Client.FplApiClient;
     import com.fploptimizer.backend.dto.*;
     import com.fploptimizer.backend.entity.Fixture;
     import com.fploptimizer.backend.entity.Gameweek;
@@ -10,11 +11,10 @@
     import com.fploptimizer.backend.repository.GameweekRepository;
     import com.fploptimizer.backend.repository.PlayerRepository;
     import com.fploptimizer.backend.repository.TeamRepository;
-    import jakarta.annotation.PostConstruct;
     import lombok.RequiredArgsConstructor;
     import lombok.extern.slf4j.Slf4j;
     import org.springframework.stereotype.Service;
-    import org.springframework.web.client.RestTemplate;
+
 
     import java.util.ArrayList;
     import java.util.List;
@@ -26,21 +26,18 @@
     @RequiredArgsConstructor
     public class FplDataSyncService {
 
-        private final RestTemplate restTemplate;
         private final TeamRepository teamRepository;
         private final PlayerRepository playerRepository;
         private final FixtureRepository fixtureRepository;
         private final PlayerMapper playerMapper;
         private final GameweekRepository gameweekRepository;
+        private final FplApiClient fplApiClient;
 
         //@PostConstruct // This function is executed automatically once - when Spring Context is initialized
         public void fetchStaticData()
         {
-            String url = "https://fantasy.premierleague.com/api/bootstrap-static/";
 
-
-            // HTTP GET request to the FPL endpoint and deserializes JSON response to our DTO
-            FplStaticResponseDto response =  restTemplate.getForObject(url, FplStaticResponseDto.class);
+            FplStaticResponseDto response = fplApiClient.getStaticData();
 
             if (response == null) {
                 log.warn("Failed to fetch data from FPL API: response was null");
@@ -120,8 +117,8 @@
         }
 
         public void syncFixtures(){
-            String url = "https://fantasy.premierleague.com/api/fixtures/";
-            FixtureDto[] fixtureDtos = restTemplate.getForObject(url, FixtureDto[].class);
+
+            FixtureDto[] fixtureDtos = fplApiClient.getFixtures();
 
             if(fixtureDtos == null)
             {

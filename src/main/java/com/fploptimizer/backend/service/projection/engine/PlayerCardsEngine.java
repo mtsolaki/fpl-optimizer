@@ -10,19 +10,19 @@ import java.util.List;
 @Component
 public class PlayerCardsEngine {
 
-    // Priors για κίτρινες κάρτες ανά 90λεπτο (Premier League averages)
+    // Priors for yellow cards per 90 mins (Premier League averages)
     private static final double PRIOR_YELLOW_DEF = 0.14;
     private static final double PRIOR_YELLOW_MID = 0.12;
     private static final double PRIOR_YELLOW_FWD = 0.08;
     private static final double PRIOR_YELLOW_GKP = 0.02;
 
-    // Priors για κόκκινες κάρτες ανά 90λεπτο
+    // Priors for red cards per 90 mins
     private static final double PRIOR_RED_DEF = 0.006;
     private static final double PRIOR_RED_MID = 0.005;
     private static final double PRIOR_RED_FWD = 0.003;
     private static final double PRIOR_RED_GKP = 0.001;
 
-    // Constants για το blending με τα logs
+    // Constants for blending with logs
     private static final double MAX_RECENT_WEIGHT = 0.35;
     private static final double SAMPLE_MINUTES_THRESHOLD = 270.0;
     private static final double MIN_MINUTES_TO_CONSIDER = 45.0;

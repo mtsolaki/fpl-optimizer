@@ -15,6 +15,9 @@ public interface PlayerRepository extends JpaRepository<Player,Integer> {
     Optional<Player> findById(int id);
     List<Player> findByTeamId(int teamId);
 
+    @Query("SELECT p FROM Player p WHERE p.id IN :fplIds")
+    List<Player> findByFplIdIn(@Param("fplIds") List<Integer> fplIds);
+
     @Query("SELECT p FROM Player p WHERE p.id = :fplId")
     Optional<Player> findByFplId(@Param("fplId") int fplId);
 }

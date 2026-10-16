@@ -78,10 +78,10 @@ public class PlayerBonusEngine {
 
         eventBonus = Math.max(0.0, eventBonus);
 
-        // 3. Εξαγωγή πρόσφατου ιστορικού Bonus από τα logs
+        // 3. Recent Bonus History from logs
         double finalBonus = getFinalBonus(projectedMinutes, gameweekLogs, eventBonus);
 
-        // Κανένας παίκτης δεν μπορεί να λάβει αρνητικό bonus ή πάνω από 3 πόντους
+        // No player can get negative or more than 3 points bonus
         return Math.clamp(finalBonus, 0.0, 3.0);
 
     }
@@ -105,7 +105,7 @@ public class PlayerBonusEngine {
             }
         }
 
-        // 4. Blending Event Bonus με το ιστορικό trend του παίκτη
+        // 4. Blending Event Bonus with player trend
         double finalBonus;
         if (totalRecentMinutes < MIN_MINUTES_TO_CONSIDER) {
             finalBonus = eventBonus;

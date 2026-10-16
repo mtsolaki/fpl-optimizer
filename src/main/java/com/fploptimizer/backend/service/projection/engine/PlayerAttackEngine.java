@@ -113,15 +113,15 @@ public class PlayerAttackEngine {
             double seasonMinutes = player.getPerformance().getMinutes();
             double rawPer90 = player.getAdvancedMetrics().getExpectedGoalsPer90();
 
-            // Αν δεν έχει παίξει ουσιαστικά καθόλου, εμπιστευόμαστε 100% το prior
+            // If he practically didn't play we trust prior
             if (seasonMinutes < 45.0) {
                 return prior;
             }
 
-            // Clamping στο realistic ceiling πριν το blend
+            // Clamping in realistic ceiling before blend
             rawPer90 = Math.clamp(rawPer90, 0.0, MAX_REALISTIC_XG_PER_90);
 
-            // Bayesian Shrinkage προς το prior αναλογικά με τα λεπτά συμμετοχής
+            // Bayesian Shrinkage to prior regarding minutes played
             double weight = Math.min(1.0, seasonMinutes / MIN_SEASON_SAMPLE_MINUTES);
             return (weight * rawPer90) + ((1.0 - weight) * prior);
         }

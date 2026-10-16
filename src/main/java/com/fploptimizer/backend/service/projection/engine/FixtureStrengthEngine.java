@@ -76,7 +76,7 @@ public class FixtureStrengthEngine {
         double homeCsProb = Math.exp(-awayLambda);
         double awayCsProb = Math.exp(-homeLambda);
 
-        // 7. Κατασκευή TeamStrengthProjection records
+        // 7.TeamStrengthProjection records construction
         TeamStrengthProjection homeProj = new TeamStrengthProjection(
                 homeTeam.getId(),
                 homeBaseAtt,
@@ -141,7 +141,7 @@ public class FixtureStrengthEngine {
     private double calculateBaseDefense(Team team, LeagueStandingsSnapshot standings, boolean isHome) {
         int fdr = resolveTeamStrength(team, isHome);
 
-        // Μεγαλύτερο FDR σημαίνει καλύτερη ομάδα, άρα μικρότερη ευπάθεια άμυνας (beta < 1.0)
+        // Bigger FDR means better team
         double priorDef = 1.0 - (fdr - 3.0) * 0.08;
 
         if (standings == null || standings.matchesPlayed() == null || standings.matchesPlayed() == 0) {

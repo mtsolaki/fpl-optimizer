@@ -13,7 +13,7 @@ public class PlayerGameweekOutcome {
 
     private Boolean wasStarter;
 
-    // --- Πραγματική συμμετοχή & συμβάντα ---
+    // ---Actual events ---
     private Integer actualMinutes;
     private Integer actualGoals;
     private Integer actualAssists;
@@ -24,21 +24,21 @@ public class PlayerGameweekOutcome {
     private Integer actualBonus;
     private Integer actualBps;
 
-    // --- Πραγματικό DefCon ---
+    // --- Actual DefCon ---
     private Integer actualDefensiveContribution;
 
-    // --- Πειθαρχία & Πέναλτι ---
+    // --- Disciplinary and Penalties ---
     private Integer actualYellowCards;
     private Integer actualRedCards;
     private Integer actualPenaltiesMissed;
     private Integer actualPenaltiesSaved;
 
-    // --- Επίσημα Actual Advanced Metrics του αγώνα ---
+    // --- Official Actual Advanced Metrics of the match ---
     private Double actualXg;
     private Double actualXa;
     private Double actualXgc;
 
-    // --- Τελικοί Πόντοι & Σφάλμα Μοντέλου ---
+    // --- Actual total points and Model Error ---
     private Integer actualTotalPoints;
 
 

@@ -33,7 +33,7 @@ public enum Position {
     }
 
     /**
-     * Επιστρέφει το όνομα της θέσης για serialization (π.χ. "MID", "FWD").
+     * Returns positions name for serialization (π.χ. "MID", "FWD").
      */
     @JsonValue
     public String getCode() {

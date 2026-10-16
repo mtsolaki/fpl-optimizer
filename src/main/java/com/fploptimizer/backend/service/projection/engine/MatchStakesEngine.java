@@ -24,7 +24,7 @@ public class MatchStakesEngine {
 
         double rawMultiplier = 1.0 + (delta * tau);
 
-        // Clamping στο [0.90, 1.10]
+        // Clamping in [0.90, 1.10]
         return Math.clamp(rawMultiplier, 0.90, 1.10); //  Math.max(0.90, Math.min(1.10, rawMultiplier))
     }
 
