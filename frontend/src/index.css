@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@tailwind utilities;
+@theme {
+  /* Παράδειγμα για την Πρόταση 1 (Official PL) */
+  --color-canvas: #0d021a;
+  --color-panel: #18082e;
+  --color-panel-border: #2d164d;
+  --color-pl-green: #00ff87;
+  --color-pl-pink: #ff2882;
+
+  /* Custom Pitch Greens */
+  --color-turf-light: #075e2b;
+  --color-turf-dark: #054a22;
+}
+
+body {
+  background-color: #020617; /* slate-950 */
+  color: #f8fafc; /* slate-100 */
+  min-height: 100vh;
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Aesthetic Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(13, 2, 26, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 135, 0.5); /* Premier League Green Glow */
+}
+
+/* Firefox standard scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}

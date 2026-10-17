@@ -1,17 +1,19 @@
 # ⚽ FPL Optimizer Backend
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg?logo=openjdk)](https://www.oracle.com/java/)
+[![Java](https://img.shields.io/badge/Java-21%2F25-orange.svg?logo=openjdk)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen.svg?logo=springboot)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-18%2F19-61DAFB.svg?logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-6.x-646CFF.svg?logo=vite)](https://vitejs.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
+[![Nginx](https://img.shields.io/badge/Nginx-Alpine-009639.svg?logo=nginx)](https://nginx.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg?logo=postgresql)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?logo=docker)](https://www.docker.com/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-grey.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
+> ⚠️ **Project Status: Active Development**  
+> Core probabilistic projection engines, mathematical lineup optimization, multi-gameweek forecasting, automated batch reconciliation, and the interactive frontend dashboard are functional. Multi-gameweek transfer planning and chip optimization algorithms are actively being developed.
 
-> ⚠️ **Project Status: Active Development (Work in Progress)**  
-> Core projection engines and lineup optimization services are implemented and functional. Real-time data pipeline enhancements, multi-gameweek transfer planning, and a dedicated frontend dashboard are currently under active construction.
-
-
-An advanced statistical modeling and optimization backend engine for **Fantasy Premier League (FPL)**. Built with **Spring Boot** and **PostgreSQL**, this service ingests real-time data from the official FPL API, runs probabilistic distributions (Poisson modeling, expected minutes, lineup degradation, match stakes), and computes mathematical optimal lineups, captaincy choices, and value picks.
+An advanced statistical modeling and optimization platform for **Fantasy Premier League (FPL)**. Built with **Spring Boot**, **PostgreSQL**, and **React (Vite/TypeScript)**, this system ingests live data from the official FPL API, runs granular probabilistic models (Poisson distribution, expected minutes, team strength degradation, fixture difficulty), and delivers optimal lineups, value picks, and model accuracy analytics via an integrated web dashboard.
 
 ---
 
@@ -31,7 +33,7 @@ An advanced statistical modeling and optimization backend engine for **Fantasy P
 
 ## 🧠 Architecture & Engine Overview
 
-Instead of simple historical averages or static difficulty ratings, the optimizer decouples team-level and player-level performance into granular statistical engines:
+The system is decoupled into statistical modeling, batch processing, and a high-performance presentation tier:
 
 ```text
 [Official FPL API] 
@@ -54,15 +56,17 @@ Instead of simple historical averages or static difficulty ratings, the optimize
        │
        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 Decision & Advisory Services                │
+│                 Pipeline & Advisory Services                │
 ├─────────────────────────────────────────────────────────────┤
 │ • UserLineupOptimizerService → Starting XI, bench, captain  │
 │ • PlayerVfmService           → Value For Money (Pts/£M)     │
-│ • GameweekPipelineScheduler  → Automated batch processing   │
+│ • GameweekPipelineScheduler  → Automated hourly sync & cron │
+│ • GameweekProjectionBatch    → Historical backfill & 5-GW   │
+│ • GameweekAnalyticsService   → Accuracy & evaluation metrics│
 └─────────────────────────────────────────────────────────────┘
-       │
-       ▼
-[UserTeamAdvisorController] ──► REST API Clients / Frontend
+       │                                     │
+       ▼ (REST API / JSON)                   ▼ (Reverse Proxy)
+[Spring Boot Backend: 8080] ◄────── [Nginx & React UI: 3000]
 ```
 
 ---
@@ -71,9 +75,12 @@ Instead of simple historical averages or static difficulty ratings, the optimize
 
 * **Probabilistic Projections (`PoissonMathUtils`):** Calculates expected goal counts, clean sheet probabilities, and appearance points via Poisson distribution.
 * **Squad Optimization (`UserLineupOptimizerService`):** Evaluates a manager's 15-man squad (`FplUserPicksResponse`) to select the optimal starting XI, bench order, and captaincy/vice-captaincy picks under official FPL formation rules.
+* **Multi-Gameweek Forward Horizon (5 GWs):** Automatically projects upcoming player and team performance across a 5-gameweek window to power transfer and squad planning.
+* **Historical Backfill & Automated Reconciliation:** Automatically identifies completed gameweeks lacking projections or settled scores and sequentially backfills outcomes upon application startup.
+* **High-Performance In-Memory Batching:** Eliminates N+1 database queries through single-trip JPA repository fetching and in-memory Map lookups, completing batch gameweek projections in milliseconds.
 * **Contextual Penalties (`LineupDegradationEngine`):** Adjusts player output when key creators or defensive anchors are injured or absent from their real-life team.
 * **Value For Money (VFM) Metrics (`PlayerVfmService`):** Identifies high-performing budget enablers vs. overpriced assets across positions (`GKP`, `DEF`, `MID`, `FWD`).
-* **Automated Batch Processing (`GameweekPipelineScheduler`):** Scheduled cron pipelines handle gameweek reconciliation, fixture projection generation, and live gameweek stats tracking.
+* **Model Evaluation & Backtesting Dashboard:** Dedicated analytics endpoints and UI tables to compare projected xP against actual realized points.
 
 ---
 
@@ -81,16 +88,25 @@ Instead of simple historical averages or static difficulty ratings, the optimize
 
 ```text
 fpl-optimizer/
-├── docker-compose.yml
-├── Dockerfile
-├── pom.xml
-├── .env.example
+├── docker-compose.yml       # Multi-container orchestration (DB, Backend, Frontend)
+├── Dockerfile               # Backend multi-stage build (Temurin JDK -> JRE)
+├── pom.xml                  # Backend Maven build configuration
+├── .env.example             # Environment variable template
+│
+├── frontend/                # React Single Page Application (SPA)
+│   ├── Dockerfile           # Frontend multi-stage build (Node -> Nginx Alpine)
+│   ├── nginx.conf           # Reverse proxy routing (/api/ -> backend:8080)
+│   ├── package.json         # React & UI dependencies
+│   ├── vite.config.ts       # Vite build setup
+│   └── src/                 # Components, hooks, types, and dashboard views
+│
 └── src/
     ├── main/java/com/fploptimizer/backend/
+    │   ├── bootstrap/       # Startup hooks and seed listeners
     │   ├── client/          # FplApiClient: Integration with FPL REST endpoints
     │   ├── config/          # Spring beans, WebClient & async execution setup
-    │   ├── controller/      # REST API exposure (UserTeamAdvisorController)
-    │   ├── dto/             # Request & response transfer objects (advisor, live, projection)
+    │   ├── controller/      # REST API exposure (Advisor, Analytics, Sync)
+    │   ├── dto/             # Request & response transfer objects
     │   ├── entity/          # JPA entities (Player, Fixture, Gameweek, PlayerGameweekLog)
     │   │   └── player/      # Embedded metrics, outcomes, projections, and market info
     │   ├── exception/       # GlobalExceptionHandler for structured API errors
@@ -100,7 +116,7 @@ fpl-optimizer/
     │   └── service/
     │       ├── advisor/     # Lineup optimizer and VFM scoring services
     │       ├── projection/  # Mathematical engines (Attack, Defence, Minutes, Stakes)
-    │       └── sync/        # Live data fetching, reconciliation, and standings sync
+    │       └── sync/        # Live outcome settlement, standings, and batching
     └── test/java/com/fploptimizer/backend/
         ├── controller/      # Controller integration tests
         └── service/         # Unit tests for Poisson math, VFM, and optimization
@@ -109,11 +125,11 @@ fpl-optimizer/
 
 ## 🚀 Quick Start (Docker)
 
-Spin up the backend and a fully configured PostgreSQL instance with a single command:
+Spin up the entire stack (PostgreSQL 16, Spring Boot Backend, and React/Nginx Frontend) with a single command:
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/mtsolaki/fpl-optimizer.git](https://github.com/mtsolaki/fpl-optimizer.git)
+git clone https://github.com/mtsolaki/fpl-optimizer.git
 cd fpl-optimizer
 ```
 
@@ -126,11 +142,14 @@ cp .env.example .env
 ```bash
 docker compose up --build -d
 ```
-API Base URL: http://localhost:8080
+### 4. Access Services
+Frontend Web Dashboard: http://localhost:3000
 
-PostgreSQL: localhost:5432
+Backend REST API: http://localhost:8080
 
-To tail backend logs:
+PostgreSQL Database: localhost:5432
+
+To follow container logs in real-time:
 ```bash 
 docker compose logs -f backend
 ```
@@ -156,12 +175,18 @@ The following variables can be configured via `.env` or system environment varia
 
 ## 🔌 REST API Endpoints
 
-All team advice and projection capabilities are exposed under the advisor controller:
+## 🔌 REST API Endpoints
 
-| Method | Endpoint                                              | Description |
-|---|-------------------------------------------------------|---|
+### 1. Team Advisor & Lineup Optimizer
+| Method | Endpoint | Description |
+|---|---|---|
 | `GET` | `/api/v1/advisor/lineup/{teamId}?gameweek={gameweek}` | Recommends optimal XI, bench order, and captain/VC for an FPL Team ID |
-| `GET` | `/api/v1/advisor/vfm?gameweek={gameweek}`                                | Retrieves Value-For-Money (VFM) rankings across all players and positions |
+| `GET` | `/api/v1/advisor/vfm?gameweek={gameweek}` | Retrieves Value-For-Money (VFM) rankings across all players and positions |
+
+### 2. Model Analytics & Evaluation
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/analytics/gameweek?gameweek={gw}` | Retrieves all player projections alongside actual realized outcomes for model backtesting |
 
 ---
 
@@ -172,6 +197,7 @@ If you prefer running the application outside of Docker:
 ### Prerequisites
 * **Java 21 (JDK)**
 * **Maven 3.9+** (or use the packaged `./mvnw`)
+* **Node.js 20+** and **npm**
 * **PostgreSQL 15+** running locally
 
 ### Steps
@@ -195,15 +221,16 @@ Run the test suite covering the optimization logic, VFM ranking, and controller 
    ```
 ## Roadmap & Upcoming Features
 
-- [x] **Core Statistical Engine:** Decoupled Poisson modeling, expected minutes, attack/defence adjustments, and degradation penalties.
-- [x] **Advisory APIs:** User lineup recommendation, bench ordering, and Value-For-Money (VFM) endpoints.
-- [x] **FPL API Ingestion:** Automatic sync of fixtures, bootstrap-static data, and gameweek logs.
-- [x] **Dockerized Setup:** Complete multi-stage build and automated PostgreSQL container orchestration.
-- [ ] **Multi-Gameweek Transfer Planner:** Dynamic programming algorithm to recommend optimal transfers across a 3–5 gameweek planning horizon under budget constraints.
-- [ ] **FPL Chips Optimization Strategy:** Mathematical timing triggers for *Wildcard*, *Free Hit*, *Bench Boost*, and *Triple Captain*.
-- [ ] **Mini-League & Competitor Tracker:** Head-to-head simulations and effective ownership (EO) risk-mitigation metrics.
-- [ ] **Dedicated Web Dashboard (Frontend):** Interactive React/Next.js UI for lineup visualizer, fixture difficulty ticker, and player projection comparisons.
-- [ ] **Live Gameweek Rank Simulator:** Real-time auto-subs, provisional bonus calculation, and live rank forecasting.
+- [x] **Core Statistical Engine:** Decoupled Poisson modeling, expected minutes, attack/defence adjustments, and degradation penalties.[cite: 8]
+- [x] **Advisory APIs:** User lineup recommendation, bench ordering, and Value-For-Money (VFM) endpoints.[cite: 8]
+- [x] **Automated Pipeline Lifecycle:** Automatic outcome reconciliation, historical backfill, and 5-gameweek forward projections.
+- [x] **Performance Optimization:** N+1 query elimination via Map-based in-memory lookups and BuildKit dependency caching.
+- [x] **Full-Stack Dockerization:** Multi-stage Docker builds for backend, frontend, and PostgreSQL with Nginx reverse proxy.[cite: 8]
+- [x] **Evaluation Dashboard:** Web interface and analytics endpoints to monitor and backtest model projections against real outcomes.
+- [ ] **Multi-Gameweek Transfer Planner:** Dynamic programming algorithm to recommend optimal transfers across a 3–5 gameweek planning horizon under budget constraints.[cite: 8]
+- [ ] **FPL Chips Optimization Strategy:** Mathematical timing triggers for *Wildcard*, *Free Hit*, *Bench Boost*, and *Triple Captain*.[cite: 8]
+- [ ] **Mini-League & Competitor Tracker:** Head-to-head simulations and effective ownership (EO) risk-mitigation metrics.[cite: 8]
+- [ ] **Live Gameweek Rank Simulator:** Real-time auto-subs, provisional bonus calculation, and live rank forecasting.[cite: 8]
 ## 📄 License
 
 This project is licensed under the GNU AGPLv3 Licence - see the LICENSE file for details.

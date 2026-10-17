@@ -64,7 +64,11 @@ public class GameweekPipelineScheduler {
             // Step 3: Projection Pipeline Trigger
              log.info("Pipeline Step 3: Triggering model projections...");
 
-            projectionBatchService.runProjectionsForUpcomingGameweek();
+            // 3a. Historical backfill (runs ONLY for completed GWs missing projections)
+            projectionBatchService.runProjectionsForCompletedGameweeks();
+
+            // 3b. Forward-looking multi-gameweek projections (next 5 gameweeks)
+            projectionBatchService.runProjectionsForUpcomingGameweeks(5);
 
             log.info("Pipeline executed successfully.");
         } catch (Exception e) {

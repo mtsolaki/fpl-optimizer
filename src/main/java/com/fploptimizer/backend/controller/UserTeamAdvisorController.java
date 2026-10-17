@@ -3,6 +3,7 @@ package com.fploptimizer.backend.controller;
 import com.fploptimizer.backend.dto.advisor.UserLineupResponseDto;
 import com.fploptimizer.backend.dto.advisor.VfmPlayerDto;
 import com.fploptimizer.backend.entity.Position;
+import com.fploptimizer.backend.service.GameweekService;
 import com.fploptimizer.backend.service.PlayerVfmService;
 import com.fploptimizer.backend.service.UserLineupOptimizerService;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class UserTeamAdvisorController {
 
     private final UserLineupOptimizerService userLineupOptimizerService;
     private final PlayerVfmService playerVfmService;
+    private final GameweekService gameweekService;
     /**
      * Returns best eleven, formation, bench and captains
      * for a specific fpl team and gameweek
@@ -32,10 +34,12 @@ public class UserTeamAdvisorController {
     @GetMapping("/lineup/{teamId}")
     public ResponseEntity<UserLineupResponseDto> getOptimizedLineup(
             @PathVariable int teamId,
-            @RequestParam int gameweek
+            @RequestParam(required = false) Integer gameweek
     ) {
-        log.info("Received lineup optimization request for teamId: {}, gameweek: {}", teamId, gameweek);
-        UserLineupResponseDto response = userLineupOptimizerService.optimizeUserLineup(teamId, (gameweek));
+        int targetGw = (gameweek != null) ? gameweek : gameweekService.getNextGameweekId();
+
+        log.info("Received lineup optimization request for teamId: {}, gameweek: {}", teamId, targetGw);
+        UserLineupResponseDto response = userLineupOptimizerService.optimizeUserLineup(teamId, targetGw);
         return ResponseEntity.ok(response);
     }
 
@@ -48,14 +52,15 @@ public class UserTeamAdvisorController {
      */
     @GetMapping("/vfm")
     public ResponseEntity<List<VfmPlayerDto>> getTopVfmPlayers(
-            @RequestParam int gameweek,
+            @RequestParam(required = false) Integer gameweek,
             @RequestParam(required = false) Position position,
             @RequestParam(required = false) Double maxPrice,
             @RequestParam(defaultValue = "60.0") double minMinutes,
             @RequestParam(defaultValue = "20") int limit
     ) {
-        log.info("Fetching VFM players for GW {}, position: {}, maxPrice: {}", gameweek, position, maxPrice);
-        List<VfmPlayerDto> result = playerVfmService.getTopVfmPlayers(gameweek, position, maxPrice, minMinutes, limit);
+        int targetGw = (gameweek != null) ? gameweek : gameweekService.getNextGameweekId();
+        log.info("Fetching VFM players for GW {}, position: {}, maxPrice: {}", targetGw, position, maxPrice);
+        List<VfmPlayerDto> result = playerVfmService.getTopVfmPlayers(targetGw, position, maxPrice, minMinutes, limit);
         return ResponseEntity.ok(result);
     }
 }

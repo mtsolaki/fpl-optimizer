@@ -9,11 +9,11 @@ WORKDIR /app
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 RUN chmod +x mvnw
-RUN ./mvnw dependency:go-offline -B
+
 
 # Copy source code and jar build
 COPY src ./src
-RUN ./mvnw clean package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 ./mvnw clean package -DskipTests
 
 # ==========================================
 # 2. Runtime Stage

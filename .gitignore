@@ -32,3 +32,8 @@ build/
 ### VS Code ###
 .vscode/
 .env
+
+# Frontend ignores
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

@@ -64,5 +64,21 @@ public interface PlayerGameweekLogRepository extends JpaRepository<PlayerGamewee
 """)
     List<PlayerGameweekLog> findAllByGameweekIdWithPlayer(@Param("gameweekId") int gameweekId);
 
+    @Query("""
+        SELECT DISTINCT l.gameweek.id
+        FROM PlayerGameweekLog l
+        WHERE l.projection.projectedXp IS NOT NULL
+    """)
+    Set<Integer> findGameweekIdsWithProjections();
+
+    @Query("""
+    SELECT log FROM PlayerGameweekLog log
+    WHERE log.gameweek.id = :gameweekId
+      AND log.season = :season
+""")
+    List<PlayerGameweekLog> findAllByGameweekIdAndSeason(
+            @Param("gameweekId") int gameweekId,
+            @Param("season") String season
+    );
 
 }

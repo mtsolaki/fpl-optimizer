@@ -36,5 +36,16 @@ services:
     ports:
       - "8080:8080"
 
+  frontend:
+    build:
+      context: ./frontend      # Η διαδρομή προς τον φάκελο του React project
+      dockerfile: Dockerfile
+    container_name: fpl_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
 volumes:
   postgres_data:
