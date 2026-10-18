@@ -221,16 +221,16 @@ Run the test suite covering the optimization logic, VFM ranking, and controller 
    ```
 ## Roadmap & Upcoming Features
 
-- [x] **Core Statistical Engine:** Decoupled Poisson modeling, expected minutes, attack/defence adjustments, and degradation penalties.[cite: 8]
-- [x] **Advisory APIs:** User lineup recommendation, bench ordering, and Value-For-Money (VFM) endpoints.[cite: 8]
+- [x] **Core Statistical Engine:** Decoupled Poisson modeling, expected minutes, attack/defence adjustments, and degradation penalties.
+- [x] **Advisory APIs:** User lineup recommendation, bench ordering, and Value-For-Money (VFM) endpoints.
 - [x] **Automated Pipeline Lifecycle:** Automatic outcome reconciliation, historical backfill, and 5-gameweek forward projections.
 - [x] **Performance Optimization:** N+1 query elimination via Map-based in-memory lookups and BuildKit dependency caching.
-- [x] **Full-Stack Dockerization:** Multi-stage Docker builds for backend, frontend, and PostgreSQL with Nginx reverse proxy.[cite: 8]
+- [x] **Full-Stack Dockerization:** Multi-stage Docker builds for backend, frontend, and PostgreSQL with Nginx reverse proxy.
 - [x] **Evaluation Dashboard:** Web interface and analytics endpoints to monitor and backtest model projections against real outcomes.
-- [ ] **Multi-Gameweek Transfer Planner:** Dynamic programming algorithm to recommend optimal transfers across a 3–5 gameweek planning horizon under budget constraints.[cite: 8]
-- [ ] **FPL Chips Optimization Strategy:** Mathematical timing triggers for *Wildcard*, *Free Hit*, *Bench Boost*, and *Triple Captain*.[cite: 8]
-- [ ] **Mini-League & Competitor Tracker:** Head-to-head simulations and effective ownership (EO) risk-mitigation metrics.[cite: 8]
-- [ ] **Live Gameweek Rank Simulator:** Real-time auto-subs, provisional bonus calculation, and live rank forecasting.[cite: 8]
+- [ ] **Multi-Gameweek Transfer Planner:** Dynamic programming algorithm to recommend optimal transfers across a 3–5 gameweek planning horizon under budget constraints.
+- [ ] **FPL Chips Optimization Strategy:** Mathematical timing triggers for *Wildcard*, *Free Hit*, *Bench Boost*, and *Triple Captain*.
+- [ ] **Mini-League & Competitor Tracker:** Head-to-head simulations and effective ownership (EO) risk-mitigation metrics.
+- [ ] **Live Gameweek Rank Simulator:** Real-time auto-subs, provisional bonus calculation, and live rank forecasting.
 ## 📄 License
 
 This project is licensed under the GNU AGPLv3 Licence - see the LICENSE file for details.
