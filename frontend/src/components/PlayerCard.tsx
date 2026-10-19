@@ -1,12 +1,27 @@
 import React, { useState } from 'react';
-import type {LineupPlayer} from '../types/fpl';
+import type { LineupPlayer } from '../types/fpl';
 import { TrendingUp, DollarSign, Activity, ShieldAlert } from 'lucide-react';
 
+/**
+ * Properties for the PlayerCard component.
+ */
 interface PlayerCardProps {
+    /**
+     * Lineup player record containing identity, projected xP, status, and role.
+     */
     player: LineupPlayer;
+    /**
+     * Flag indicating whether the card is rendered inside the bench dugout.
+     * Influences the orientation of the hover details popover.
+     *
+     * @defaultValue false
+     */
     isBench?: boolean;
 }
 
+/**
+ * Kit color configuration schema for SVG rendering.
+ */
 interface KitColorConfig {
     body: string;
     sleeves: string;
@@ -15,6 +30,9 @@ interface KitColorConfig {
     stripes?: string;
 }
 
+/**
+ * Visual kit styling mapping for Premier League clubs.
+ */
 const CLUB_KITS: Record<string, KitColorConfig> = {
     ARS: { body: '#d0101b', sleeves: '#ffffff', cuff: '#d0101b', trim: '#ffffff' },
     ARSENAL: { body: '#d0101b', sleeves: '#ffffff', cuff: '#d0101b', trim: '#ffffff' },
@@ -66,6 +84,15 @@ const CLUB_KITS: Record<string, KitColorConfig> = {
     SUNDERLAND: { body: '#eb172b', sleeves: '#ffffff', cuff: '#18181b', trim: '#18181b', stripes: '#ffffff' },
 };
 
+/**
+ * Individual player pitch card rendering customized team jerseys, captaincy badges, and hover analytics.
+ *
+ * Renders an interactive jersey SVG using club color themes, displays captain/vice-captain armbands,
+ * and reveals an analytical popover on hover displaying projected xP, cost, and injury status.
+ *
+ * @param props - The component properties.
+ * @returns The rendered player card component.
+ */
 export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -85,8 +112,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false 
     const isAvailable = player.status === 'a';
     const isDoubtful = player.status === 'd';
 
-    // Ο τερματοφύλακας του γηπέδου ανοίγει προς τα κάτω για να μην βγαίνει από το γήπεδο.
-    // Όλοι οι άλλοι (και ΟΛΟΙ οι παίκτες του bench) ανοίγουν προς τα ΠΑΝΩ.
+    // Starting goalkeeper popover opens downwards to stay within pitch boundaries; all others open upwards
     const opensDownwards = player.position === 'GKP' && !isBench;
     const popoverPositionClass = opensDownwards ? 'top-full mt-2.5' : 'bottom-full mb-3';
 
@@ -105,28 +131,28 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false 
                 >
                     {/* Header Strip inside Popover */}
                     <div className="flex items-center gap-2 border-b border-panel-border/70 pb-2 mb-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-canvas border border-slate-700 text-[10px] font-black font-mono text-pl-green">
-              {player.teamShortName}
-            </span>
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-canvas border border-slate-700 text-[10px] font-black font-mono text-pl-green">
+                            {player.teamShortName}
+                        </span>
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                <span className="truncate text-xs font-black text-white">
-                  {player.webName}
-                </span>
+                                <span className="truncate text-xs font-black text-white">
+                                    {player.webName}
+                                </span>
                                 {player.isCaptain && (
                                     <span className="shrink-0 px-1 py-0.2 rounded bg-pl-gold text-slate-950 font-black text-[8.5px]">
-                    CAP
-                  </span>
+                                        CAP
+                                    </span>
                                 )}
                                 {player.isViceCaptain && (
                                     <span className="shrink-0 px-1 py-0.2 rounded bg-slate-200 text-slate-950 font-black text-[8.5px]">
-                    VC
-                  </span>
+                                        VC
+                                    </span>
                                 )}
                             </div>
                             <span className="block text-[9px] font-mono text-slate-400">
-                {player.position} • ID #{player.fplId}
-              </span>
+                                {player.position} • ID #{player.fplId}
+                            </span>
                         </div>
                     </div>
 
@@ -138,8 +164,8 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false 
                                 <span>xP</span>
                             </div>
                             <span className="text-sm font-black text-pl-green font-mono">
-                {player.projectedXp.toFixed(2)}
-              </span>
+                                {player.projectedXp.toFixed(2)}
+                            </span>
                         </div>
 
                         <div className="rounded-xl bg-canvas border border-panel-border p-2 text-center">
@@ -148,21 +174,21 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false 
                                 <span>Cost</span>
                             </div>
                             <span className="text-sm font-black text-white font-mono">
-                £{normalizedPrice}m
-              </span>
+                                £{normalizedPrice}m
+                            </span>
                         </div>
                     </div>
 
-                    {/* Status Details (Χωρίς κανένα Priority) */}
+                    {/* Status Details */}
                     <div className="space-y-1.5 text-[10px] font-mono">
                         <div className="flex items-center justify-between text-slate-300">
-              <span className="flex items-center gap-1 text-slate-400">
-                <Activity className="h-3 w-3 text-cyan-400" />
-                Status:
-              </span>
+                            <span className="flex items-center gap-1 text-slate-400">
+                                <Activity className="h-3 w-3 text-cyan-400" />
+                                Status:
+                            </span>
                             <span className={`font-bold ${isAvailable ? 'text-pl-green' : 'text-amber-400'}`}>
-                {isAvailable ? 'Available' : 'Flagged'}
-              </span>
+                                {isAvailable ? 'Available' : 'Flagged'}
+                            </span>
                         </div>
 
                         {player.news && (
@@ -263,26 +289,26 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false 
                 </svg>
 
                 <span className="absolute bottom-1 text-[8.5px] font-black uppercase tracking-wider text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] opacity-85 font-mono">
-          {player.teamShortName}
-        </span>
+                    {player.teamShortName}
+                </span>
             </div>
 
-            {/* 4. Obsidian Capsule with Bold Visible Captaincy */}
+            {/* 4. Capsule with Bold Visible Captaincy */}
             <div className="w-full rounded-xl bg-gradient-to-b from-slate-900/95 via-zinc-900/90 to-black/95 border border-slate-700/60 shadow-xl backdrop-blur-md p-1 sm:p-1.5 flex flex-col items-center">
 
                 {/* Name Row */}
                 <div className="w-full flex items-center justify-between gap-1 px-1">
-          <span className="truncate text-left font-extrabold tracking-tight text-white text-[11px] sm:text-xs flex-1">
-            {player.webName}
-          </span>
+                    <span className="truncate text-left font-extrabold tracking-tight text-white text-[11px] sm:text-xs flex-1">
+                        {player.webName}
+                    </span>
 
                     {player.isCaptain && (
                         <span
                             title="Team Captain (2x Points)"
                             className="shrink-0 flex h-4.5 w-4.5 items-center justify-center rounded-md bg-pl-gold text-slate-950 font-black text-[10px] shadow-[0_0_8px_rgba(234,179,8,0.8)] border border-amber-200"
                         >
-              C
-            </span>
+                            C
+                        </span>
                     )}
 
                     {player.isViceCaptain && (
@@ -290,8 +316,8 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false 
                             title="Vice-Captain"
                             className="shrink-0 flex h-4.5 w-4.5 items-center justify-center rounded-md bg-slate-200 text-slate-950 font-black text-[10px] shadow-sm border border-white"
                         >
-              V
-            </span>
+                            V
+                        </span>
                     )}
                 </div>
 
@@ -300,17 +326,17 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, isBench = false 
                 {/* Metrics Row: xP & Price */}
                 <div className="w-full flex items-center justify-between px-1 font-mono">
                     <div className="flex items-baseline gap-1">
-            <span className="text-[8.5px] uppercase tracking-wider text-slate-400 font-bold font-sans">
-              xP
-            </span>
+                        <span className="text-[8.5px] uppercase tracking-wider text-slate-400 font-bold font-sans">
+                            xP
+                        </span>
                         <span className="font-black text-pl-green text-[11px] sm:text-[12px] drop-shadow-[0_0_8px_rgba(0,255,135,0.45)]">
-              {player.projectedXp.toFixed(1)}
-            </span>
+                            {player.projectedXp.toFixed(1)}
+                        </span>
                     </div>
 
                     <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-300">
-            {formattedPrice}
-          </span>
+                        {formattedPrice}
+                    </span>
                 </div>
             </div>
 

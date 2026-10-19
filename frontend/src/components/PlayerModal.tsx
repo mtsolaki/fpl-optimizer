@@ -1,14 +1,32 @@
 import React, { useEffect } from 'react';
-import type {LineupPlayer} from '../types/fpl';
+import type { LineupPlayer } from '../types/fpl';
 import { X, TrendingUp, DollarSign, ShieldAlert, Award, Activity } from 'lucide-react';
 
+/**
+ * Properties for the PlayerModal dialog component.
+ */
 interface PlayerModalProps {
+    /**
+     * Complete lineup player object to be inspected.
+     */
     player: LineupPlayer;
+    /**
+     * Callback invoked to dismiss the modal dialog.
+     */
     onClose: () => void;
 }
 
+/**
+ * Modal dialog displaying granular tactical metrics and fitness news for an individual player.
+ *
+ * Implements accessible keyboard dismiss handling (via Escape key), displays Poisson expected points,
+ * market price valuation, squad selection hierarchy, and official availability/injury warnings.
+ *
+ * @param props - The component properties.
+ * @returns The rendered player detail modal dialog.
+ */
 export const PlayerModal: React.FC<PlayerModalProps> = ({ player, onClose }) => {
-    // Close with Escape key
+    // Dismiss modal when pressing the Escape key
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
@@ -67,13 +85,13 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ player, onClose }) => 
                                 </h3>
                                 {player.isCaptain && (
                                     <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-pl-gold text-[9px] font-black text-slate-950 shadow-md">
-                    C
-                  </span>
+                                        C
+                                    </span>
                                 )}
                                 {player.isViceCaptain && (
                                     <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-slate-300 text-[9px] font-black text-slate-950 shadow-md">
-                    V
-                  </span>
+                                        V
+                                    </span>
                                 )}
                             </div>
                             <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mt-0.5">
@@ -94,11 +112,11 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ player, onClose }) => 
                                 <span>Projected xP</span>
                             </div>
                             <span className="text-2xl font-black text-pl-green font-mono drop-shadow-[0_0_10px_rgba(0,255,135,0.35)]">
-                {player.projectedXp.toFixed(2)}
-              </span>
+                                {player.projectedXp.toFixed(2)}
+                            </span>
                             <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
-                Poisson Expected Points
-              </span>
+                                Poisson Expected Points
+                            </span>
                         </div>
 
                         {/* Current Price Card */}
@@ -108,11 +126,11 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ player, onClose }) => 
                                 <span>Market Price</span>
                             </div>
                             <span className="text-2xl font-black text-white font-mono">
-                £{normalizedPrice}m
-              </span>
+                                £{normalizedPrice}m
+                            </span>
                             <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
-                Official FPL Value
-              </span>
+                                Official FPL Value
+                            </span>
                         </div>
 
                     </div>
@@ -120,23 +138,23 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({ player, onClose }) => 
                     {/* Tactical Role & Fitness Status */}
                     <div className="space-y-2.5 rounded-2xl bg-canvas/50 border border-panel-border p-3.5 text-xs font-mono">
                         <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <Award className="h-3.5 w-3.5 text-pl-gold" />
-                Squad Priority:
-              </span>
+                            <span className="text-slate-400 flex items-center gap-1.5">
+                                <Award className="h-3.5 w-3.5 text-pl-gold" />
+                                Squad Priority:
+                            </span>
                             <span className="font-bold text-white">
-                {player.benchOrder === 0 ? 'Starting XI Lineup' : `Bench Priority ${player.benchOrder}`}
-              </span>
+                                {player.benchOrder === 0 ? 'Starting XI Lineup' : `Bench Priority ${player.benchOrder}`}
+                            </span>
                         </div>
 
                         <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5 text-cyan-400" />
-                Player Availability:
-              </span>
+                            <span className="text-slate-400 flex items-center gap-1.5">
+                                <Activity className="h-3.5 w-3.5 text-cyan-400" />
+                                Player Availability:
+                            </span>
                             <span className={`font-bold ${isAvailable ? 'text-pl-green' : 'text-amber-400'}`}>
-                {isAvailable ? 'Fully Available (100%)' : 'Fitness Concern / Flagged'}
-              </span>
+                                {isAvailable ? 'Fully Available (100%)' : 'Fitness Concern / Flagged'}
+                            </span>
                         </div>
 
                         {player.news && (

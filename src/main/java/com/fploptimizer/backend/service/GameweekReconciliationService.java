@@ -3,6 +3,7 @@ package com.fploptimizer.backend.service;
 import com.fploptimizer.backend.entity.Gameweek;
 import com.fploptimizer.backend.repository.GameweekRepository;
 import com.fploptimizer.backend.repository.PlayerGameweekLogRepository;
+import com.fploptimizer.backend.service.sync.LiveGameweekSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,12 @@ import java.util.Set;
 /**
  * Service responsible for identifying completed gameweeks lacking settled outcomes
  * and orchestrating their sequential synchronization.
+ *
+ * Guarantees data completeness for model evaluation and historical feature generation by detecting
+ * finished rounds that have not yet ingested actual match statistics.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
  */
 @Slf4j
 @Service
@@ -25,12 +32,12 @@ public class GameweekReconciliationService {
 
     /**
      * Dynamically identifies finished gameweeks without stored outcomes in the database
-     * and sequentially calls LiveGameweekSyncService for each missing one.
+     * and sequentially calls LiveGameweekSyncService for each missing round.
      *
      * Invoking the sync service via Spring Bean proxy ensures that each gameweek
-     * runs inside its own isolated @Transactional context.
+     * executes within its own isolated transactional boundary.
      *
-     * @param season the target season identifier (e.g. "2026-2027")
+     * @param season the target season identifier (e.g., "2026-2027")
      */
     public void reconcileMissingGameweekOutcomes(String season) {
         log.info("Checking for finished gameweeks with missing outcomes...");
@@ -48,7 +55,7 @@ public class GameweekReconciliationService {
         // 2. Fetch IDs of gameweeks that already have settled outcomes
         Set<Integer> settledGameweekIds = logRepository.findSettledGameweekIds();
 
-        // 3. Identify missing gameweeks in chronological ascending order (e.g. GW1 -> GW2 -> ... -> GW6)
+        // 3. Identify missing gameweeks in chronological ascending order (e.g., GW1 -> GW2 -> ... -> GW6)
         List<Integer> missingGameweekIds = finishedGameweeks.stream()
                 .map(Gameweek::getId)
                 .filter(id -> !settledGameweekIds.contains(id))

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type {PlayerGameweekReport} from '../types/fpl';
+import type { PlayerGameweekReport } from '../types/fpl';
 import { fetchGameweekAnalytics } from '../services/fplApi';
 import {
     BarChart3,
@@ -18,9 +18,15 @@ import {
     ArrowUpDown
 } from 'lucide-react';
 
+/**
+ * Valid tactical position filter values for the analytics table.
+ */
 const POSITION_FILTERS = ['ALL', 'GKP', 'DEF', 'MID', 'FWD'] as const;
 type PositionFilter = (typeof POSITION_FILTERS)[number];
 
+/**
+ * Sortable numeric fields in the gameweek performance report table.
+ */
 type SortableField =
     | 'projectedXp'
     | 'actualPoints'
@@ -28,22 +34,33 @@ type SortableField =
     | 'actualMinutes'
     | 'variance';
 
+/**
+ * Analytics and model evaluation view comparing statistical projections against realized match points.
+ *
+ * Fetches player gameweek reports from the backend analytics endpoint, manages gameweek stepping,
+ * supports text searching and position filtering, and computes client-side prediction variance (Delta).
+ *
+ * @returns The rendered Gameweek Analytics view.
+ */
 export const GameweekAnalyticsView: React.FC = () => {
     const [reports, setReports] = useState<PlayerGameweekReport[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Gameweek State (null = auto upcoming GW from backend)
+    // Gameweek State (null resolves automatically to the upcoming gameweek in the backend)
     const [gameweek, setGameweek] = useState<number | null>(null);
 
-    // Filters State
+    // Filter state
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedPosition, setSelectedPosition] = useState<PositionFilter>('ALL');
 
-    // Sorting State
+    // Sorting state
     const [sortField, setSortField] = useState<SortableField>('projectedXp');
     const [sortAsc, setSortAsc] = useState<boolean>(false);
 
+    /**
+     * Loads gameweek reports whenever the selected gameweek changes.
+     */
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -63,6 +80,11 @@ export const GameweekAnalyticsView: React.FC = () => {
         loadData();
     }, [gameweek]);
 
+    /**
+     * Toggles sort direction or updates the active sort column.
+     *
+     * @param field - The column field to sort by.
+     */
     const handleSort = (field: SortableField) => {
         if (sortField === field) {
             setSortAsc(!sortAsc);
@@ -72,7 +94,12 @@ export const GameweekAnalyticsView: React.FC = () => {
         }
     };
 
-    // Helper υπολογισμού Delta (Variance)
+    /**
+     * Computes the prediction error delta (Actual Points - Projected xP).
+     *
+     * @param item - The individual player report.
+     * @returns The difference value, or null if match outcomes are not yet settled.
+     */
     const calculateDelta = (item: PlayerGameweekReport): number | null => {
         if (item.actualPoints === null || item.actualPoints === undefined) {
             return null;
@@ -81,7 +108,7 @@ export const GameweekAnalyticsView: React.FC = () => {
         return item.actualPoints - xp;
     };
 
-    // Filtering & Sorting
+    // Filter and sort reports
     const filteredAndSortedReports = reports
         .filter((p) => {
             const matchesSearch =
@@ -130,6 +157,12 @@ export const GameweekAnalyticsView: React.FC = () => {
         ? (reports.reduce((acc, r) => acc + (r.projectedXp || 0), 0) / reports.length).toFixed(1)
         : '0.0';
 
+    /**
+     * Resolves the styling badge classes for a given tactical pitch position.
+     *
+     * @param pos - Tactical position abbreviation.
+     * @returns Tailwind CSS class string.
+     */
     const getPositionBadge = (pos: string) => {
         switch (pos) {
             case 'GKP':
@@ -158,12 +191,12 @@ export const GameweekAnalyticsView: React.FC = () => {
                             <Target className="h-5 w-5" />
                         </div>
                         <div>
-              <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">
-                Model Scope
-              </span>
+                            <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">
+                                Model Scope
+                            </span>
                             <span className="text-base font-black text-white font-mono">
-                {reports.length} Players Evaluated
-              </span>
+                                {reports.length} Players Evaluated
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -175,12 +208,12 @@ export const GameweekAnalyticsView: React.FC = () => {
                             <TrendingUp className="h-5 w-5" />
                         </div>
                         <div>
-              <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">
-                Mean Expected xP
-              </span>
+                            <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">
+                                Mean Expected xP
+                            </span>
                             <span className="text-base font-black text-pl-green font-mono">
-                {avgProjected} xP / Player
-              </span>
+                                {avgProjected} xP / Player
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -192,12 +225,12 @@ export const GameweekAnalyticsView: React.FC = () => {
                             <Clock className="h-5 w-5" />
                         </div>
                         <div>
-              <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">
-                Horizon Status
-              </span>
+                            <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">
+                                Horizon Status
+                            </span>
                             <span className="text-base font-black text-white font-mono">
-                {finishedGamesCount > 0 ? `${finishedGamesCount} Realized` : 'Upcoming Projections'}
-              </span>
+                                {finishedGamesCount > 0 ? `${finishedGamesCount} Realized` : 'Upcoming Projections'}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -245,8 +278,8 @@ export const GameweekAnalyticsView: React.FC = () => {
                                 -
                             </button>
                             <span className="text-xs sm:text-sm font-mono font-black text-white px-1 text-center min-w-[36px]">
-                {gameweek !== null ? gameweek : 'Next'}
-              </span>
+                                {gameweek !== null ? gameweek : 'Next'}
+                            </span>
                             <button
                                 onClick={() => setGameweek((prev) => Math.min(38, (prev ?? 1) + 1))}
                                 className="h-6 w-6 rounded bg-slate-800 text-xs font-bold text-white hover:bg-slate-700 flex items-center justify-center cursor-pointer transition-colors"
@@ -270,9 +303,9 @@ export const GameweekAnalyticsView: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         {/* Position Pills */}
                         <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1 mr-1">
-                <Filter className="h-3 w-3 text-pl-green" /> Pos:
-              </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1 mr-1">
+                                <Filter className="h-3 w-3 text-pl-green" /> Pos:
+                            </span>
                             {POSITION_FILTERS.map((pos) => (
                                 <button
                                     key={pos}
@@ -367,7 +400,7 @@ export const GameweekAnalyticsView: React.FC = () => {
                                     className="py-2.5 sm:py-3 px-3.5 sm:px-4 text-right cursor-pointer hover:text-white transition-colors"
                                 >
                                     <div className="flex items-center justify-end gap-1">
-                                        <span>Variance ($\Delta$)</span>
+                                        <span>Variance (&Delta;)</span>
                                         <ArrowUpDown className={`h-3 w-3 ${sortField === 'variance' ? 'text-pl-pink' : 'text-slate-500'}`} />
                                     </div>
                                 </th>
@@ -398,25 +431,25 @@ export const GameweekAnalyticsView: React.FC = () => {
                                             {/* Name & Club */}
                                             <td className="py-2.5 sm:py-3 px-3.5 sm:px-4">
                                                 <div className="flex items-center gap-2.5">
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 border border-slate-700 text-[10px] font-black text-slate-300 font-mono">
-                              {idx + 1}
-                            </span>
+                                                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 border border-slate-700 text-[10px] font-black text-slate-300 font-mono">
+                                                            {idx + 1}
+                                                        </span>
                                                     <div>
-                              <span className="block font-bold text-white text-xs sm:text-[13px] group-hover:text-pl-green transition-colors">
-                                {p.webName}
-                              </span>
+                                                            <span className="block font-bold text-white text-xs sm:text-[13px] group-hover:text-pl-green transition-colors">
+                                                                {p.webName}
+                                                            </span>
                                                         <span className="block text-[10px] text-slate-400">
-                                {p.teamShortName}
-                              </span>
+                                                                {p.teamShortName}
+                                                            </span>
                                                     </div>
                                                 </div>
                                             </td>
 
                                             {/* Position */}
                                             <td className="py-2.5 sm:py-3 px-2 sm:px-2.5">
-                          <span className={`px-2 py-0.5 rounded text-[9.5px] font-black border uppercase tracking-wider ${getPositionBadge(p.position)}`}>
-                            {p.position}
-                          </span>
+                                                    <span className={`px-2 py-0.5 rounded text-[9.5px] font-black border uppercase tracking-wider ${getPositionBadge(p.position)}`}>
+                                                        {p.position}
+                                                    </span>
                                             </td>
 
                                             {/* Projected Minutes */}
@@ -440,8 +473,8 @@ export const GameweekAnalyticsView: React.FC = () => {
                                             <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-right font-black">
                                                 {hasActualPts ? (
                                                     <span className="text-white bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
-                              {p.actualPoints}
-                            </span>
+                                                            {p.actualPoints}
+                                                        </span>
                                                 ) : (
                                                     <span className="text-slate-500 text-[11px]">-</span>
                                                 )}
@@ -453,19 +486,19 @@ export const GameweekAnalyticsView: React.FC = () => {
                                                     <div className="inline-flex items-center gap-1 font-black text-xs">
                                                         {diff > 0.5 ? (
                                                             <span className="flex items-center text-pl-green">
-                                  <ArrowUpRight className="h-3.5 w-3.5" />
-                                  +{diff.toFixed(1)}
-                                </span>
+                                                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                                                    +{diff.toFixed(1)}
+                                                                </span>
                                                         ) : diff < -0.5 ? (
                                                             <span className="flex items-center text-rose-400">
-                                  <ArrowDownRight className="h-3.5 w-3.5" />
+                                                                    <ArrowDownRight className="h-3.5 w-3.5" />
                                                                 {diff.toFixed(1)}
-                                </span>
+                                                                </span>
                                                         ) : (
                                                             <span className="flex items-center text-slate-400">
-                                  <Minus className="h-3 w-3" />
+                                                                    <Minus className="h-3 w-3" />
                                                                 {diff.toFixed(1)}
-                                </span>
+                                                                </span>
                                                         )}
                                                     </div>
                                                 ) : (

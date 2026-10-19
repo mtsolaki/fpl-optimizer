@@ -1,5 +1,10 @@
 import React from 'react';
 
+/**
+ * Top brand header bar with tactical pitch lineart, stylized logo, and system status indicators.
+ *
+ * @returns The rendered application top header.
+ */
 export const TopHeader: React.FC = () => {
     return (
         <header className="relative w-full h-18 bg-gradient-to-b from-panel via-panel/85 to-transparent backdrop-blur-md flex items-center justify-center shrink-0 select-none z-30 overflow-hidden">
@@ -107,13 +112,13 @@ export const TopHeader: React.FC = () => {
 
                 {/* Main Title */}
                 <span className="text-base sm:text-lg font-black tracking-[0.2em] text-white uppercase font-mono drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
-          FPL OPTIMIZER LAB
-        </span>
+                    FPL OPTIMIZER LAB
+                </span>
 
                 {/* Tactical Badge */}
                 <span className="ml-1 text-[10px] font-extrabold font-mono uppercase tracking-widest px-2 py-0.5 rounded-md bg-pl-green/10 text-pl-green border border-pl-green/30">
-          PROJECTION ENGINE
-        </span>
+                    PROJECTION ENGINE
+                </span>
             </div>
 
             {/* Glowing Ombre Divider at bottom edge */}

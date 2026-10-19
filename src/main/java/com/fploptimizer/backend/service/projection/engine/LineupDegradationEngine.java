@@ -11,44 +11,75 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
+/**
+ * Computational engine evaluating team degradation factors caused by injuries,
+ * suspensions, and player unavailabilities.
+ *
+ * Simulates a realistic starting eleven from available squad members, assesses the expected
+ * loss in attacking threat (xG + xA) when core creative players are absent, and computes
+ * defensive vulnerability penalties when key goalkeepers or defenders miss out.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
+ */
 @Component
 public class LineupDegradationEngine {
 
-    //Player from the bench provides 60% than the main player
+    // Assumed percentage of baseline production delivered by a replacement bench player
     private static final double BENCH_REPLACEMENT_FACTOR = 0.60;
 
-    // GKP absence +10% xGCon, DEF absence +5% xGCon
+    // Vulnerability penalties applied to expected goals conceded (xGC) for key absentees
     private static final double GKP_ABSENCE_PENALTY = 0.10;
     private static final double DEF_ABSENCE_PENALTY = 0.05;
 
-    // Clamping Bounds
+    // Clamping boundaries for attack degradation factor (I_att in [0.70, 1.00])
     private static final double MIN_ATTACK_DEGRADATION = 0.70;
     private static final double MAX_ATTACK_DEGRADATION = 1.00;
+    // Clamping boundaries for defense degradation factor (I_def in [1.00, 1.30])
     private static final double MIN_DEFENSE_DEGRADATION = 1.00;
     private static final double MAX_DEFENSE_DEGRADATION = 1.30;
 
-    // Used to avoid divideByZero
+    // Minimum positive offensive contribution threshold to prevent division by zero
     private static final double MIN_PLAYER_PRODUCTION = 0.05;
 
+    /**
+     * Calculates the attack and defense degradation multipliers for a given squad.
+     *
+     * Identifies the baseline starting eleven based on historical starting frequency,
+     * computes the offensive efficiency ratio under current player availability, and evaluates
+     * defensive exposure penalties.
+     *
+     * @param teamPlayers the complete roster of registered players for the team
+     * @return a LineupDegradation record containing attack and defense adjustment multipliers
+     */
     public LineupDegradation calculateDegradation(List<Player> teamPlayers) {
         if (teamPlayers == null || teamPlayers.isEmpty()) {
             return new LineupDegradation(1.0, 1.0);
         }
 
-        //Select Starters
+        // 1. Identify expected baseline starters
         List<Player> baselinePlayers = findBaselineStarters(teamPlayers);
 
-        // Calculate I_att
+        // 2. Calculate attacking production ratio (I_att)
         double attackDegradation = calculateAttackDegradation(baselinePlayers);
 
-        // Calculate I_deff
+        // 3. Calculate defensive vulnerability inflation (I_def)
         double defenseDegradation = calculateDefenseDegradation(baselinePlayers);
 
         return new LineupDegradation(attackDegradation, defenseDegradation);
 
     }
-
+    /**
+     * Reconstructs the most probable starting eleven from a squad roster.
+     *
+     * Groups players by pitch position, sorts them by historical match starts in descending order,
+     * fills mandatory minimum positional quotas (1 GKP, 3 DEF, 2 MID, 1 FWD), and dynamically
+     * allocates the remaining 4 outfield slots to the most frequently started players under valid
+     * formation constraints.
+     *
+     * @param teamPlayers the complete squad player list
+     * @return a list containing up to 11 predicted baseline starting players
+     */
     public List<Player> findBaselineStarters(List<Player> teamPlayers) {
 
         List<Player> gks = new ArrayList<>();
@@ -112,7 +143,17 @@ public class LineupDegradationEngine {
 
         return starters;
     }
-
+    /**
+     * Computes the attacking degradation multiplier by comparing expected offensive production
+     * against ideal full-strength squad output.
+     *
+     * Evaluates midfielders and forwards based on combined expected goal involvements (xG90 + xA90).
+     * Missing chance of playing scales down player contribution, assuming bench replacements
+     * recover only a fraction (60%) of baseline output.
+     *
+     * @param starters the list of baseline starting players
+     * @return the attack degradation multiplier clamped between [MIN_ATTACK_DEGRADATION, MAX_ATTACK_DEGRADATION]
+     */
     public double calculateAttackDegradation(List<Player> starters) {
         double idealAttProduction = 0.0;
         double actualAttProduction = 0.0;
@@ -147,7 +188,13 @@ public class LineupDegradationEngine {
     }
 
     /**
-     * Calculates I_deff based on missing GKP and DEFs
+     * Calculates the defensive vulnerability multiplier (I_def) driven by unavailable
+     * starting goalkeepers and defenders.
+     *
+     * Each missing starting defender or goalkeeper inflates expected goals conceded (xGC).
+     *
+     * @param starters the list of baseline starting players
+     * @return the defense degradation multiplier clamped between [MIN_DEFENSE_DEGRADATION, MAX_DEFENSE_DEGRADATION]
      */
     private double calculateDefenseDegradation(List<Player> starters) {
         double totalPenalty = 0.0;
@@ -169,7 +216,13 @@ public class LineupDegradationEngine {
     }
 
     /**
-     * Available Possibility in [0.0, 1.0].
+     * Resolves the probability of a player being available to play, expressed in range [0.0, 1.0].
+     *
+     * Takes into account explicit unavailability flags ('i' for injured, 's' for suspended,
+     * 'u' for unavailable) and FPL market news chance-of-playing percentages.
+     *
+     * @param player the player entity being assessed
+     * @return availability probability in range [0.0, 1.0]
      */
     private double resolveAvailabilityChance(Player player) {
 
@@ -188,8 +241,14 @@ public class LineupDegradationEngine {
 
 
 
-        return 1.0; // Θεωρείται διαθέσιμος αν δεν υπάρχει ένδειξη τραυματισμού/τιμωρίας
+        return 1.0;
     }
+    /**
+     * Safely retrieves the number of games started by a player during the current campaign.
+     *
+     * @param player the player entity
+     * @return number of starts, or 0 if performance metrics are unpopulated
+     */
     private int getPlayerStarts(Player player) {
         PlayerPerformance perf = player.getPerformance();
         if (perf != null && perf.getStarts() != null) {
@@ -198,6 +257,13 @@ public class LineupDegradationEngine {
         return 0;
     }
 
+    /**
+     * Appends up to n elements from the source list into the target list.
+     *
+     * @param target the destination list
+     * @param source the source list
+     * @param n      maximum number of elements to add
+     */
     private void addTop(List<Player> target, List<Player> source, int n) {
         for (int i = 0; i < Math.min(n, source.size()); i++) {
             target.add(source.get(i));

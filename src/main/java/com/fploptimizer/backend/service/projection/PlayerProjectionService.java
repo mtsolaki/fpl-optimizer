@@ -13,8 +13,13 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * Facade service orchestrating all specialized player engines to build
- * the final comprehensive Gameweek projection and expected points (xP).
+ * Facade service orchestrating all specialized projection engines to generate comprehensive player projections.
+ * Coordinates execution flow across minutes estimation, attacking threats, defensive metrics,
+ * disciplinary risks, and bonus point modeling, synthesizing all probabilistic components into
+ * a final expected points (xP) projection according to official FPL scoring rules.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
  */
 @Service
 @RequiredArgsConstructor
@@ -26,6 +31,17 @@ public class PlayerProjectionService {
     private final PlayerCardsEngine cardsEngine;
     private final PlayerBonusEngine bonusEngine;
 
+    /**
+     * Executes the end-to-end projection workflow for an individual player in an upcoming match.
+     * Evaluates on-pitch time first; if projected minutes are zero, short-circuits the pipeline
+     * with zeroed metrics. Otherwise, evaluates offensive, defensive, disciplinary, and bonus engines,
+     * applying official FPL scoring rules to determine expected points (xP).
+     *
+     * @param player         the player entity being projected
+     * @param teamProjection team-level fixture context and scoring rates
+     * @param historicalLogs prior gameweek logs used for empirical performance weighting
+     * @return a populated PlayerGameweekProjection entity containing granular metrics and final xP
+     */
     public PlayerGameweekProjection calculatePlayerProjection(
             Player player,
             TeamStrengthProjection teamProjection,
@@ -52,7 +68,7 @@ public class PlayerProjectionService {
 
         projection.setProjectedMinutes(minutes);
 
-        // If player is not expected to play at all, zero out all metrics and short-circuit
+        // Short-circuit if player has no expected playing time
         if (minutes <= 0.0) {
             projection.setProjectedXg(0.0);
             projection.setProjectedXa(0.0);
@@ -82,7 +98,7 @@ public class PlayerProjectionService {
         double projectedBonus = bonusEngine.calculatePlayerBonus(
                 player, minutes, attackResult, defenceResult, cardsResult, historicalLogs);
 
-        // 5. Store Engine Outputs into Projection
+        // 5. Store Engine Outputs into Projection Entity
         double xg = attackResult.expectedGoals();
         double xa = attackResult.expectedAssists();
         double csProb = defenceResult.cleanSheetProbability();
@@ -121,7 +137,7 @@ public class PlayerProjectionService {
             case DEF, GKP -> csProb * 4.0;
             case MID -> csProb * 1.0;
             case FWD -> 0.0;
-            case null ->  0.0;
+            case null -> 0.0;
         };
 
         double concededPenaltyPts = (pos == Position.DEF || pos == Position.GKP) ? gcPenalty : 0.0;

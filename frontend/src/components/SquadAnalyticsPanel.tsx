@@ -1,15 +1,36 @@
 import React from 'react';
-import type {UserLineupResponse} from '../types/fpl';
+import type { UserLineupResponse } from '../types/fpl';
 import { PieChart, AlertTriangle, Flame, Layers } from 'lucide-react';
 
+/**
+ * Properties for the SquadAnalyticsPanel component.
+ */
 interface SquadAnalyticsPanelProps {
+    /**
+     * Lineup optimization response payload detailing starting and reserve squad members.
+     */
     lineup: UserLineupResponse;
 }
 
+/**
+ * Analytical sidebar widgets computing squad structural insights, budget allocations, and risk profiles.
+ *
+ * Evaluates positional capital expenditure (DEF, MID, FWD, GKP), assesses offensive point concentration
+ * among the top 3 expected contributors, summarizes squad health risks, and lists premier player projections.
+ *
+ * @param props - The component properties.
+ * @returns The rendered squad analytics panel.
+ */
 export const SquadAnalyticsPanel: React.FC<SquadAnalyticsPanelProps> = ({ lineup }) => {
     const allPlayers = [...lineup.starters, ...lineup.bench];
 
-    const getPosCost = (pos: string) => {
+    /**
+     * Aggregates total market cost for a given pitch position.
+     *
+     * @param pos - Tactical position identifier.
+     * @returns Aggregated cost in millions.
+     */
+    const getPosCost = (pos: string): number => {
         return allPlayers
             .filter((p) => p.position === pos)
             .reduce((acc, p) => acc + (p.currentPrice > 100 ? p.currentPrice / 10 : p.currentPrice), 0);
@@ -55,12 +76,12 @@ export const SquadAnalyticsPanel: React.FC<SquadAnalyticsPanelProps> = ({ lineup
                         <div className="flex items-center gap-2 text-slate-200">
                             <PieChart className="h-4 w-4 text-pl-green" />
                             <span className="text-xs font-black uppercase tracking-wider font-mono">
-                Budget Allocation
-              </span>
+                                Budget Allocation
+                            </span>
                         </div>
                         <span className="text-[10px] font-mono text-slate-400">
-              Total £{totalSquadCost.toFixed(1)}m
-            </span>
+                            Total £{totalSquadCost.toFixed(1)}m
+                        </span>
                     </div>
 
                     <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-900 border border-slate-800 p-0.5 gap-0.5 mb-3">
@@ -77,15 +98,15 @@ export const SquadAnalyticsPanel: React.FC<SquadAnalyticsPanelProps> = ({ lineup
                     <div className="grid grid-cols-4 gap-2 text-center font-mono">
                         {costBreakdown.map((item) => (
                             <div key={item.label} className="rounded-xl bg-canvas/70 border border-panel-border p-2">
-                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-tight">
-                  {item.label}
-                </span>
+                                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-tight">
+                                    {item.label}
+                                </span>
                                 <span className="block text-xs font-black text-white">
-                  £{item.cost.toFixed(1)}m
-                </span>
+                                    £{item.cost.toFixed(1)}m
+                                </span>
                                 <span className="block text-[8.5px] text-slate-400">
-                  {item.pct.toFixed(0)}%
-                </span>
+                                    {item.pct.toFixed(0)}%
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -107,54 +128,54 @@ export const SquadAnalyticsPanel: React.FC<SquadAnalyticsPanelProps> = ({ lineup
                         <div className="flex items-center gap-2 text-slate-200">
                             <Flame className="h-4 w-4 text-pl-pink" />
                             <span className="text-xs font-black uppercase tracking-wider font-mono">
-                Poisson Reliability
-              </span>
+                                Poisson Reliability
+                            </span>
                         </div>
                         <span className="text-[10px] font-mono text-pl-green font-bold">
-              Avg {avgStarterXp} xP / Player
-            </span>
+                            Avg {avgStarterXp} xP / Player
+                        </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
                         <div className="rounded-xl bg-canvas/70 border border-panel-border p-3 flex flex-col justify-between">
                             <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-tight">
-                  Top 3 xP Share
-                </span>
+                                <span className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-tight">
+                                    Top 3 xP Share
+                                </span>
                                 <span className="text-base font-black text-white font-mono">
-                  {concentrationRatio}%
-                </span>
+                                    {concentrationRatio}%
+                                </span>
                             </div>
                             <span className="text-[9px] text-slate-400 mt-1">
-                {Number(concentrationRatio) > 40 ? 'Heavy reliance on key stars' : 'Balanced team spread'}
-              </span>
+                                {Number(concentrationRatio) > 40 ? 'Heavy reliance on key stars' : 'Balanced team spread'}
+                            </span>
                         </div>
 
                         <div className="rounded-xl bg-canvas/70 border border-panel-border p-3 flex flex-col justify-between">
                             <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-tight">
-                  Fitness Risk
-                </span>
+                                <span className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-tight">
+                                    Fitness Risk
+                                </span>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                     {flaggedPlayers.length > 0 ? (
                                         <>
                                             <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
                                             <span className="text-xs font-bold text-amber-300 font-mono">
-                        {flaggedPlayers.length} Flagged
-                      </span>
+                                                {flaggedPlayers.length} Flagged
+                                            </span>
                                         </>
                                     ) : (
                                         <span className="text-xs font-bold text-pl-green font-mono">
-                      100% Available
-                    </span>
+                                            100% Available
+                                        </span>
                                     )}
                                 </div>
                             </div>
                             <span className="text-[9px] text-slate-400 mt-1">
-                {flaggedPlayers.length > 0
-                    ? flaggedPlayers.map((p) => p.webName).join(', ')
-                    : 'Zero injury/doubt concerns'}
-              </span>
+                                {flaggedPlayers.length > 0
+                                    ? flaggedPlayers.map((p) => p.webName).join(', ')
+                                    : 'Zero injury/doubt concerns'}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -174,12 +195,12 @@ export const SquadAnalyticsPanel: React.FC<SquadAnalyticsPanelProps> = ({ lineup
                         <div className="flex items-center gap-2 text-slate-200">
                             <Layers className="h-4 w-4 text-pl-gold" />
                             <span className="text-xs font-black uppercase tracking-wider font-mono">
-                Key Matchup Projections
-              </span>
+                                Key Matchup Projections
+                            </span>
                         </div>
                         <span className="text-[10px] font-mono text-slate-400">
-              Top Expected Returns
-            </span>
+                            Top Expected Returns
+                        </span>
                     </div>
 
                     <div className="space-y-2">
@@ -189,27 +210,27 @@ export const SquadAnalyticsPanel: React.FC<SquadAnalyticsPanelProps> = ({ lineup
                                 className="flex items-center justify-between rounded-xl bg-canvas/60 border border-panel-border p-2.5 transition-colors hover:bg-canvas/90"
                             >
                                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 border border-slate-700 text-[10px] font-black font-mono text-slate-300">
-                    {idx + 1}
-                  </span>
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 border border-slate-700 text-[10px] font-black font-mono text-slate-300">
+                                        {idx + 1}
+                                    </span>
                                     <div className="min-w-0 truncate">
-                    <span className="block truncate text-xs font-bold text-white">
-                      {p.webName}
-                    </span>
+                                        <span className="block truncate text-xs font-bold text-white">
+                                            {p.webName}
+                                        </span>
                                         <span className="block text-[9.5px] text-slate-400 font-mono">
-                      {p.teamShortName} • {p.position}
-                    </span>
+                                            {p.teamShortName} • {p.position}
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-2 font-mono shrink-0">
-                  <span className="text-xs font-black text-pl-green drop-shadow-[0_0_6px_rgba(0,255,135,0.3)]">
-                    {p.projectedXp.toFixed(1)} xP
-                  </span>
+                                    <span className="text-xs font-black text-pl-green drop-shadow-[0_0_6px_rgba(0,255,135,0.3)]">
+                                        {p.projectedXp.toFixed(1)} xP
+                                    </span>
                                     {p.isCaptain && (
                                         <span className="rounded bg-pl-gold/20 border border-pl-gold/40 px-1 text-[9px] font-extrabold text-pl-gold">
-                      C
-                    </span>
+                                            C
+                                        </span>
                                     )}
                                 </div>
                             </div>

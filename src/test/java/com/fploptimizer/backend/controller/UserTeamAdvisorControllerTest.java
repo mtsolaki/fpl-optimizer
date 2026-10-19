@@ -26,6 +26,15 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Unit tests verifying the REST endpoints of UserTeamAdvisorController using MockMvc in standalone mode.
+ *
+ * Validates HTTP status code mapping, payload serialization, query parameter handling,
+ * and error translation via GlobalExceptionHandler for advisory and VFM recommendations.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
+ */
 @ExtendWith(MockitoExtension.class)
 class UserTeamAdvisorControllerTest {
 
@@ -40,14 +49,22 @@ class UserTeamAdvisorControllerTest {
     @InjectMocks
     private UserTeamAdvisorController userTeamAdvisorController;
 
+    /**
+     * Sets up the MockMvc instance in standalone mode, registering GlobalExceptionHandler.
+     */
     @BeforeEach
     void setUp() {
-        // Standalone setup of the Controller with Exception Handler
         mockMvc = MockMvcBuilders.standaloneSetup(userTeamAdvisorController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
+    /**
+     * Verifies that GET /api/v1/advisor/lineup/{teamId} returns HTTP 200 OK
+     * and a properly structured UserLineupResponseDto payload.
+     *
+     * @throws Exception if request dispatch fails
+     */
     @Test
     @DisplayName("GET /api/v1/advisor/lineup/{teamId} should return 200 and valid JSON")
     void shouldReturnOptimizedLineup() throws Exception {
@@ -83,6 +100,12 @@ class UserTeamAdvisorControllerTest {
                 .andExpect(jsonPath("$.captain.isCaptain").value(true));
     }
 
+    /**
+     * Verifies that GET /api/v1/advisor/lineup/{teamId} maps NoSuchElementException
+     * to HTTP 404 Not Found via the exception handler.
+     *
+     * @throws Exception if request dispatch fails
+     */
     @Test
     @DisplayName("GET /api/v1/advisor/lineup/{teamId} should return 404 when team is not found")
     void shouldReturn404WhenTeamNotFound() throws Exception {
@@ -97,6 +120,12 @@ class UserTeamAdvisorControllerTest {
                 .andExpect(jsonPath("$.error").value("Not Found"));
     }
 
+    /**
+     * Verifies that GET /api/v1/advisor/vfm returns HTTP 200 OK
+     * and a list of top-ranked VfmPlayerDto records.
+     *
+     * @throws Exception if request dispatch fails
+     */
     @Test
     @DisplayName("GET /api/v1/advisor/vfm should return 200 and list of top VFM players")
     void shouldReturnTopVfmPlayers() throws Exception {

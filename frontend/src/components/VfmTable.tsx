@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type {VfmPlayer} from '../types/fpl';
+import type { VfmPlayer } from '../types/fpl';
 import { fetchVfmPlayers } from '../services/fplApi';
 import {
     Search,
@@ -12,26 +12,46 @@ import {
     RotateCcw
 } from 'lucide-react';
 
+/**
+ * Valid tactical position filter values for the VFM market table.
+ */
 const POSITION_FILTERS = ['ALL', 'GKP', 'DEF', 'MID', 'FWD'] as const;
 type PositionFilter = (typeof POSITION_FILTERS)[number];
 
+/**
+ * Value-For-Money (VFM) transfer target discovery table component.
+ *
+ * Ranks market candidates by efficiency ratio (projected xP / cost in £m),
+ * providing budget cap sliders, position filters, text search, and column sorting.
+ *
+ * @returns The rendered Value For Money discovery table.
+ */
 export const VfmTable: React.FC = () => {
     const [players, setPlayers] = useState<VfmPlayer[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Filters State (No Gameweek manual inputs)
+    // Filter controls state
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedPosition, setSelectedPosition] = useState<PositionFilter>('ALL');
     const [maxPrice, setMaxPrice] = useState<number>(15.0);
     const [sortField, setSortField] = useState<'vfmScore' | 'projectedXp' | 'currentPrice'>('vfmScore');
     const [sortAsc, setSortAsc] = useState<boolean>(false);
 
+    /**
+     * Normalizes player market price from integer tenths (e.g. 75) to millions (7.5).
+     *
+     * @param val - Raw price value.
+     * @returns Price in millions.
+     */
     const normalizePrice = (val: number): number => {
         if (!val) return 0;
         return val > 100 ? val / 10 : val;
     };
 
+    /**
+     * Fetches VFM player listings whenever the budget cap changes.
+     */
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -53,6 +73,11 @@ export const VfmTable: React.FC = () => {
         loadData();
     }, [maxPrice]);
 
+    /**
+     * Toggles sorting direction or switches the active sort attribute.
+     *
+     * @param field - Selected field to sort by.
+     */
     const handleSort = (field: 'vfmScore' | 'projectedXp' | 'currentPrice') => {
         if (sortField === field) {
             setSortAsc(!sortAsc);
@@ -79,6 +104,12 @@ export const VfmTable: React.FC = () => {
             return (valA - valB) * factor;
         });
 
+    /**
+     * Resolves the tactical position badge style.
+     *
+     * @param pos - Tactical position abbreviation.
+     * @returns Tailwind class string.
+     */
     const getPositionBadge = (pos: string) => {
         switch (pos) {
             case 'GKP':
@@ -148,9 +179,9 @@ export const VfmTable: React.FC = () => {
 
                     {/* Position Pills */}
                     <div className="md:col-span-4 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1 mr-1">
-              <Filter className="h-3 w-3 text-pl-green" /> Pos:
-            </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1 mr-1">
+                            <Filter className="h-3 w-3 text-pl-green" /> Pos:
+                        </span>
                         {POSITION_FILTERS.map((pos) => (
                             <button
                                 key={pos}
@@ -169,14 +200,14 @@ export const VfmTable: React.FC = () => {
                     {/* Max Price Slider */}
                     <div className="md:col-span-4 flex flex-col justify-center gap-1">
                         <div className="flex items-center justify-between text-[11px] font-mono">
-              <span className="flex items-center gap-1 text-slate-400 font-bold uppercase tracking-tight">
-                <DollarSign className="h-3.5 w-3.5 text-pl-pink" />
-                Budget Cap:
-              </span>
+                            <span className="flex items-center gap-1 text-slate-400 font-bold uppercase tracking-tight">
+                                <DollarSign className="h-3.5 w-3.5 text-pl-pink" />
+                                Budget Cap:
+                            </span>
                             <div className="flex items-center gap-2">
-                <span className="font-black text-white bg-slate-900 border border-slate-700 px-2 py-0.5 rounded text-xs">
-                  ≤ £{maxPrice.toFixed(1)}m
-                </span>
+                                <span className="font-black text-white bg-slate-900 border border-slate-700 px-2 py-0.5 rounded text-xs">
+                                    ≤ £{maxPrice.toFixed(1)}m
+                                </span>
                                 {maxPrice < 15.0 && (
                                     <button
                                         onClick={() => setMaxPrice(15.0)}
@@ -276,25 +307,25 @@ export const VfmTable: React.FC = () => {
                                         {/* Name & Club */}
                                         <td className="py-2.5 sm:py-3 px-3.5 sm:px-4">
                                             <div className="flex items-center gap-2.5">
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 border border-slate-700 text-[10px] font-black text-slate-300 font-mono">
-                            {idx + 1}
-                          </span>
+                                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-900 border border-slate-700 text-[10px] font-black text-slate-300 font-mono">
+                                                        {idx + 1}
+                                                    </span>
                                                 <div>
-                            <span className="block font-bold text-white text-xs sm:text-[13px] group-hover:text-pl-green transition-colors">
-                              {player.webName}
-                            </span>
+                                                        <span className="block font-bold text-white text-xs sm:text-[13px] group-hover:text-pl-green transition-colors">
+                                                            {player.webName}
+                                                        </span>
                                                     <span className="block text-[10px] text-slate-400">
-                              {player.teamShortName}
-                            </span>
+                                                            {player.teamShortName}
+                                                        </span>
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* Position */}
                                         <td className="py-2.5 sm:py-3 px-2.5 sm:px-3">
-                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-black border uppercase tracking-wider ${getPositionBadge(player.position)}`}>
-                          {player.position}
-                        </span>
+                                                <span className={`px-2 py-0.5 rounded text-[9.5px] font-black border uppercase tracking-wider ${getPositionBadge(player.position)}`}>
+                                                    {player.position}
+                                                </span>
                                         </td>
 
                                         {/* Price */}
@@ -310,12 +341,12 @@ export const VfmTable: React.FC = () => {
                                         {/* VFM Ratio */}
                                         <td className="py-2.5 sm:py-3 px-3.5 sm:px-4 text-right">
                                             <div className="flex flex-col items-end">
-                          <span className="font-black text-xs sm:text-sm text-pl-green drop-shadow-[0_0_8px_rgba(0,255,135,0.35)]">
-                            {vfmRatio}
-                          </span>
+                                                    <span className="font-black text-xs sm:text-sm text-pl-green drop-shadow-[0_0_8px_rgba(0,255,135,0.35)]">
+                                                        {vfmRatio}
+                                                    </span>
                                                 <span className="text-[9px] text-slate-400">
-                            pts per £1m
-                          </span>
+                                                        pts per £1m
+                                                    </span>
                                             </div>
                                         </td>
                                     </tr>

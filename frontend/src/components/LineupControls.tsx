@@ -1,14 +1,34 @@
 import React, { useState } from 'react';
 import { Play, Sparkles, User, Loader2 } from 'lucide-react';
 
+/**
+ * Properties for the LineupControls component.
+ */
 interface LineupControlsProps {
+    /**
+     * Callback invoked with the parsed team ID when optimization is submitted.
+     */
     onOptimize: (teamId: number) => void;
+    /**
+     * Flag indicating whether optimization is currently processing.
+     */
     isLoading: boolean;
 }
 
+/**
+ * Input toolbar component allowing managers to specify their FPL Team ID and trigger lineup optimization.
+ *
+ * @param props - The component properties.
+ * @returns The rendered input controls panel.
+ */
 export const LineupControls: React.FC<LineupControlsProps> = ({ onOptimize, isLoading }) => {
     const [teamIdInput, setTeamIdInput] = useState<string>('');
 
+    /**
+     * Handles form submission, parses the integer ID, and dispatches the optimization callback.
+     *
+     * @param e - The form submission event.
+     */
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const id = parseInt(teamIdInput.trim(), 10);

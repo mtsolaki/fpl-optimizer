@@ -12,6 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Service providing analytical reports and projection evaluation metrics across gameweeks.
+ *
+ * Compiles comparative views of predicted figures (expected points and projected minutes)
+ * versus actual realized match outcomes (total points and minutes played) for backtesting and accuracy audits.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -20,10 +29,13 @@ public class GameweekAnalyticsService {
     private final PlayerGameweekLogRepository logRepository;
 
     /**
-     * Retrieves all player projections and actual outcomes for a target gameweek.
+     * Retrieves aggregated player projections and realized outcomes for a target gameweek.
      *
-     * @param gameweekId the target gameweek ID
-     * @return a list of player reports sorted by projected xP descending
+     * Fetches settled and upcoming player logs joined with parent player entities in a single query
+     * and sorts the resulting reports by projected expected points (xP) in descending order.
+     *
+     * @param gameweekId the unique identifier of the target gameweek
+     * @return a list of PlayerGameweekReportDto instances ordered by descending projected xP
      */
     @Transactional(readOnly = true)
     public List<PlayerGameweekReportDto> getGameweekPlayerReports(int gameweekId) {
@@ -44,6 +56,13 @@ public class GameweekAnalyticsService {
                 .toList();
     }
 
+    /**
+     * Maps an internal PlayerGameweekLog entity and its embedded projection and outcome records
+     * into a flattened evaluation DTO.
+     *
+     * @param logEntry source log entity containing player metadata, projections, and outcomes
+     * @return a flattened PlayerGameweekReportDto
+     */
     private PlayerGameweekReportDto mapToDto(PlayerGameweekLog logEntry) {
         Player player = logEntry.getPlayer();
 

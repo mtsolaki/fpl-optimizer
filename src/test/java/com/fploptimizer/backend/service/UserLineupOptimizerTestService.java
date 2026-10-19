@@ -24,6 +24,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit test suite verifying the mathematical lineup optimization algorithm in UserLineupOptimizerService.
+ *
+ * Validates optimal formation selection among the 8 legal structures, substitute bench hierarchy
+ * (goalkeeper priority and descending xP ordering for outfield slots), and the captaincy safety lock.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
+ */
 @ExtendWith(MockitoExtension.class)
 class UserLineupOptimizerServiceTest {
 
@@ -43,35 +52,50 @@ class UserLineupOptimizerServiceTest {
     private List<Player> mockPlayers;
     private List<PlayerGameweekLog> mockLogs;
 
+    /**
+     * Constructs a realistic 15-player FPL squad (2 GKP, 5 DEF, 5 MID, 3 FWD) with distinct projection profiles.
+     */
     @BeforeEach
     void setUp() {
         mockPicks = new ArrayList<>();
         mockPlayers = new ArrayList<>();
         mockLogs = new ArrayList<>();
 
-        // 2 GKP
+        // 2 Goalkeepers
         createMockPlayer(1, 101, "GKP 1", Position.GKP, 5.0, 4.0, 82.0, "a");
         createMockPlayer(2, 102, "GKP 2", Position.GKP, 4.0, 1.0, 0.0, "a");
 
-        // 5 DEF (xP: 5.0, 4.0, 3.0, 2.0, 1.0)
+        // 5 Defenders (xP: 5.0, 4.0, 3.0, 2.0, 1.0)
         for (int i = 1; i <= 5; i++) {
             createMockPlayer(2 + i, 200 + i, "DEF " + i, Position.DEF, 5.0, 6.0 - i, 80.0, "a");
         }
 
-        // 5 MID (xP: 6.0, 5.0, 4.0, 3.0, 2.0)
+        // 5 Midfielders (xP: 6.0, 5.0, 4.0, 3.0, 2.0)
         for (int i = 1; i <= 5; i++) {
             createMockPlayer(7 + i, 300 + i, "MID " + i, Position.MID, 7.0, 7.0 - i, 80.0, "a");
         }
 
-        // 3 FWD
-        // FWD High-Risk: High xP (9.0) but low minutes played (45.0) and status 'd' (αμφίβολος)
+        // 3 Forwards
+        // FWD High-Risk: High xP (9.0) but low minutes (45.0) and status 'd' (should fail safety lock)
         createMockPlayer(13, 401, "FWD High-Risk", Position.FWD, 12.0, 9.0, 45.0, "d");
-        // FWD Safe:  8.0 xP, 82 minutes and status 'a' (should be Captain due to Safety Lock)
+        // FWD Safe: 8.0 xP, 82 minutes and status 'a' (should be Captain due to Safety Lock)
         createMockPlayer(14, 402, "FWD Safe", Position.FWD, 8.0, 8.0, 82.0, "a");
         // FWD Bench
         createMockPlayer(15, 403, "FWD Bench", Position.FWD, 5.0, 2.0, 60.0, "a");
     }
 
+    /**
+     * Helper method to populate test picks, player entities, and gameweek logs.
+     *
+     * @param fplId   external player ID
+     * @param code    unique player code
+     * @param name    display name
+     * @param pos     pitch position
+     * @param price   current market price
+     * @param xp      projected expected points
+     * @param minutes projected playing time
+     * @param status  FPL availability flag
+     */
     private void createMockPlayer(int fplId, int code, String name, Position pos,
                                   double price, double xp, double minutes, String status) {
         mockPicks.add(new FplUserPicksResponse.PickItem(fplId, mockPicks.size() + 1, 1, false, false));
@@ -97,7 +121,6 @@ class UserLineupOptimizerServiceTest {
         projection.setProjectedXp(xp);
         projection.setProjectedMinutes(minutes);
 
-
         Gameweek gw = new Gameweek();
         gw.setId(7);
 
@@ -108,17 +131,21 @@ class UserLineupOptimizerServiceTest {
         mockLogs.add(log);
     }
 
+    /**
+     * Verifies that the optimizer selects the best starting eleven, correctly sorts the substitute bench,
+     * and enforces the captaincy safety lock (rejecting doubtful players with low minutes despite high xP).
+     */
     @Test
     @DisplayName("Should select optimal lineup, sort bench correctly, and enforce captaincy safety lock")
     void shouldOptimizeLineupWithSafetyLock() {
         FplUserPicksResponse.EntryHistory history = new FplUserPicksResponse.EntryHistory(
-                1,      // Integer
-                0,      // Integer
-                0,      // Integer
-                1000L,  // Long
-                5L,     // Long
-                0,      // Integer
-                0       // Integer
+                1,
+                0,
+                0,
+                1000L,
+                5L,
+                0,
+                0
         );
 
         FplUserPicksResponse picksResponse = new FplUserPicksResponse(history, mockPicks);
@@ -133,24 +160,24 @@ class UserLineupOptimizerServiceTest {
         assertThat(result.starters()).hasSize(11);
         assertThat(result.bench()).hasSize(4);
 
-        //  Captaincy Safety Lock:
-
+        // Verify Captaincy Safety Lock:
+        // "FWD Safe" should be selected over "FWD High-Risk" due to the 70+ minutes and status 'a' requirements
         assertThat(result.captain()).isNotNull();
         assertThat(result.captain().webName()).isEqualTo("FWD Safe");
         assertThat(result.captain().isCaptain()).isTrue();
 
-        // Confirmation Vice-Captain:
-
+        // Verify Vice-Captain selection:
         assertThat(result.viceCaptain()).isNotNull();
         assertThat(result.viceCaptain().webName()).isEqualTo("MID 1");
         assertThat(result.viceCaptain().isViceCaptain()).isTrue();
 
-        // Bench Confirmation:
+        // Verify Substitute Bench Ordering:
+        // Slot 0: Goalkeeper sub
         assertThat(result.bench().get(0).position()).isEqualTo(Position.GKP);
         assertThat(result.bench().get(0).webName()).isEqualTo("GKP 2");
         assertThat(result.bench().get(0).benchOrder()).isEqualTo(0);
 
-        // Slots 1-3: Ordered by decreasing xP.
+        // Slots 1-3: Outfield substitutes ordered by descending projected xP
         assertThat(result.bench().get(1).benchOrder()).isEqualTo(1);
         assertThat(result.bench().get(2).benchOrder()).isEqualTo(2);
         assertThat(result.bench().get(3).benchOrder()).isEqualTo(3);

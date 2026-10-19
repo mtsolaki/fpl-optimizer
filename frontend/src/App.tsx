@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type {UserLineupResponse} from './types/fpl';
+import type { UserLineupResponse } from './types/fpl';
 import { fetchLineup } from './services/fplApi';
 import { Sidebar } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -12,12 +12,26 @@ import { VfmTable } from './components/VfmTable';
 import { GameweekAnalyticsView } from './components/GameweekAnalyticsView';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
 
+/**
+ * Root application component coordinating primary navigation modules and global application state.
+ *
+ * Manages view switching across the Lineup Optimizer, Value-For-Money (VFM) transfer explorer,
+ * and Gameweek Analytics views. Houses asynchronous lineup calculation states and renders the
+ * interactive pitch and squad analytics workspace.
+ *
+ * @returns The rendered root application dashboard layout.
+ */
 export default function App() {
   const [activeFeature, setActiveFeature] = useState<string>('optimizer');
   const [lineupData, setLineupData] = useState<UserLineupResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  /**
+   * Dispatches asynchronous squad optimization requests for a specified FPL manager entry ID.
+   *
+   * @param teamId - The unique integer identifier of the FPL team.
+   */
   const handleOptimizeLineup = async (teamId: number) => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -108,6 +122,7 @@ export default function App() {
                   <VfmTable />
                 </div>
             )}
+
             {/* Feature 3: Gameweek Analytics */}
             {activeFeature === 'analytics' && (
                 <div className="max-w-6xl mx-auto">

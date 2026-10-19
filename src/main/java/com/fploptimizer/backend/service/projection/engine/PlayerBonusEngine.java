@@ -10,29 +10,55 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * Computational engine responsible for estimating expected FPL bonus points (0 to 3 points).
+ *
+ * Utilizes an event-driven heuristic calibrated against the official Bonus Points System (BPS):
+ * 1. Derives positional baseline bonus expectancy from attacking contributions (xG, xA),
+ *    defensive solidity (clean sheets, DefCon metrics, goalkeeper saves), and discipline penalties.
+ * 2. Incorporates empirical bonus point acquisition rates from recent match logs.
+ * 3. Restricts final output strictly to the official range [0.0, 3.0].
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
+ */
 @Component
 public class PlayerBonusEngine {
 
-    // Weights Event-Driven Model for FWD / MID
+    // Event-driven coefficients for forwards and midfielders
     private static final double WEIGHT_ATTACK_XG = 0.55;
     private static final double WEIGHT_ATTACK_XA = 0.35;
-    private static final double WEIGHT_ATTACK_CS = 0.15; // Small BPS boost for MIDS Clean Sheet
+    private static final double WEIGHT_ATTACK_CS = 0.15; // Clean sheet BPS bump for midfielders
 
-    // Wights Event-Driven Model for DEF / GKP
+    // Event-driven coefficients for defenders and goalkeepers
     private static final double WEIGHT_DEF_CS = 0.50;
     private static final double WEIGHT_DEF_DEFCON = 0.15;
     private static final double WEIGHT_DEF_SAVES = 0.08;
     private static final double WEIGHT_DEF_XG = 0.45;
     private static final double WEIGHT_DEF_XA = 0.30;
 
-    // Penalty in BPS
+    // Disciplinary BPS penalty coefficient
     private static final double WEIGHT_YELLOW_PENALTY = 0.10;
 
-    // Constants for blending with logs
+    // Weighting parameters for blending recent match history
     private static final double MAX_RECENT_BONUS_WEIGHT = 0.25;
     private static final double SAMPLE_MINUTES_THRESHOLD = 270.0;
     private static final double MIN_MINUTES_TO_CONSIDER = 45.0;
 
+    /**
+     * Projects expected bonus points for a player in an upcoming match.
+     *
+     * Evaluates positional event drivers (goals, assists, clean sheets, saves, cards)
+     * and combines them with recent empirical bonus generation trends from historical logs.
+     *
+     * @param player           the target player entity
+     * @param projectedMinutes projected playing time for the fixture
+     * @param attackResult     projected attacking stats (xG, xA)
+     * @param defenceResult    projected defensive metrics (clean sheet prob, defcon, saves)
+     * @param cardsResult      projected disciplinary risk (yellow card frequency)
+     * @param gameweekLogs     historical match logs for empirical bonus rate estimation
+     * @return expected bonus points clamped between 0.0 and 3.0
+     */
     public double calculatePlayerBonus(
             Player player,
             double projectedMinutes,
@@ -40,12 +66,12 @@ public class PlayerBonusEngine {
             PlayerDefenceResult defenceResult,
             PlayerCardsResult cardsResult,
             List<PlayerGameweekLog> gameweekLogs
-    ){
+    ) {
         if (player == null || projectedMinutes <= 0.0) {
             return 0.0;
         }
 
-        // 1. null-safety check to collect the necessary data
+        // 1. Safe extraction of input projections
         double xg = (attackResult != null) ? attackResult.expectedGoals() : 0.0;
         double xa = (attackResult != null) ? attackResult.expectedAssists() : 0.0;
         double csProb = (defenceResult != null) ? defenceResult.cleanSheetProbability() : 0.0;
@@ -53,7 +79,7 @@ public class PlayerBonusEngine {
         double saves = (defenceResult != null) ? defenceResult.projectedSaves() : 0.0;
         double yellowCards = (cardsResult != null) ? cardsResult.projectedYellowCards() : 0.0;
 
-        // 2. Event Driven bonus based on position
+        // 2. Position-specific event-driven bonus evaluation
         double eventBonus = 0.0;
         Position pos = player.getPosition();
 
@@ -78,14 +104,24 @@ public class PlayerBonusEngine {
 
         eventBonus = Math.max(0.0, eventBonus);
 
-        // 3. Recent Bonus History from logs
+        // 3. Blend with empirical bonus points from recent gameweek logs
         double finalBonus = getFinalBonus(projectedMinutes, gameweekLogs, eventBonus);
 
-        // No player can get negative or more than 3 points bonus
+        // Official FPL rules cap bonus points between 0 and 3
         return Math.clamp(finalBonus, 0.0, 3.0);
-
     }
 
+    /**
+     * Blends the event-driven bonus projection with the player's recent historical bonus trend.
+     *
+     * Computes the recent bonus rate per 90 minutes across historical logs and applies a dynamic
+     * sample-size weight up to MAX_RECENT_BONUS_WEIGHT.
+     *
+     * @param projectedMinutes projected playing time in minutes
+     * @param gameweekLogs     historical match logs for the player
+     * @param eventBonus       theoretical event-driven baseline bonus
+     * @return blended bonus expectation
+     */
     private static double getFinalBonus(double projectedMinutes, List<PlayerGameweekLog> gameweekLogs, double eventBonus) {
         double totalRecentMinutes = 0.0;
         double totalRecentBonus = 0.0;
@@ -105,17 +141,15 @@ public class PlayerBonusEngine {
             }
         }
 
-        // 4. Blending Event Bonus with player trend
-        double finalBonus;
+        // Return baseline event bonus if sample size is insufficient
         if (totalRecentMinutes < MIN_MINUTES_TO_CONSIDER) {
-            finalBonus = eventBonus;
-        } else {
-            double recentBonusPer90 = (totalRecentBonus / totalRecentMinutes) * 90.0;
-            double projectedRecentBonus = recentBonusPer90 * (projectedMinutes / 90.0);
-
-            double weight = MAX_RECENT_BONUS_WEIGHT * Math.min(1.0, totalRecentMinutes / SAMPLE_MINUTES_THRESHOLD);
-            finalBonus = (1.0 - weight) * eventBonus + weight * projectedRecentBonus;
+            return eventBonus;
         }
-        return finalBonus;
+
+        double recentBonusPer90 = (totalRecentBonus / totalRecentMinutes) * 90.0;
+        double projectedRecentBonus = recentBonusPer90 * (projectedMinutes / 90.0);
+
+        double weight = MAX_RECENT_BONUS_WEIGHT * Math.min(1.0, totalRecentMinutes / SAMPLE_MINUTES_THRESHOLD);
+        return (1.0 - weight) * eventBonus + weight * projectedRecentBonus;
     }
 }

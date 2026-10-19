@@ -1,12 +1,28 @@
 import React from 'react';
-import type {LineupPlayer} from '../types/fpl';
+import type { LineupPlayer } from '../types/fpl';
 import { PlayerCard } from './PlayerCard';
 
+/**
+ * Properties for the Bench component.
+ */
 interface BenchProps {
+    /**
+     * Complete list of substitute bench players designated by the optimization engine.
+     */
     bench: LineupPlayer[];
 }
 
+/**
+ * Dugout bench presentation component displaying reserve players and auto-substitution priorities.
+ *
+ * Sorts the substitute roster to anchor the backup goalkeeper to the primary slot,
+ * ordering outfield substitutes by designated bench hierarchy (slots 1 to 3).
+ *
+ * @param props - The component properties.
+ * @returns The rendered substitute dugout panel.
+ */
 export const Bench: React.FC<BenchProps> = ({ bench }) => {
+    // Sort bench: Goalkeeper anchored to slot 0, outfield substitutes ordered by benchOrder
     const sortedBench = [...bench].sort((a, b) => {
         if (a.position === 'GKP') return -1;
         if (b.position === 'GKP') return 1;
@@ -39,12 +55,12 @@ export const Bench: React.FC<BenchProps> = ({ bench }) => {
                 <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-pl-green shadow-[0_0_8px_#00ff87]" />
                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-100 font-mono">
-            Substitutes Dugout
-          </span>
+                        Substitutes Dugout
+                    </span>
                 </div>
                 <span className="text-[10px] font-mono text-slate-400">
-          Auto-Sub Priority (1 → 3)
-        </span>
+                    Auto-Sub Priority (1 → 3)
+                </span>
             </div>
 
             {/* 4 Dugout Pods */}
@@ -60,15 +76,15 @@ export const Bench: React.FC<BenchProps> = ({ bench }) => {
                         >
                             {/* Dugout Pod Indicator Header */}
                             <div className="mb-2 flex w-full items-center justify-center">
-                <span
-                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-black tracking-wider uppercase shadow-xs ${
-                        isGkp
-                            ? 'bg-pl-green/15 text-pl-green border border-pl-green/30'
-                            : 'bg-slate-900 text-slate-300 border border-panel-border'
-                    }`}
-                >
-                  {subBadge}
-                </span>
+                                <span
+                                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-black tracking-wider uppercase shadow-xs ${
+                                        isGkp
+                                            ? 'bg-pl-green/15 text-pl-green border border-pl-green/30'
+                                            : 'bg-slate-900 text-slate-300 border border-panel-border'
+                                    }`}
+                                >
+                                    {subBadge}
+                                </span>
                             </div>
 
                             {/* Player Card */}

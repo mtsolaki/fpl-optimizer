@@ -1,29 +1,33 @@
 @import "tailwindcss";
 
 @tailwind utilities;
+
+/**
+ * Custom theme token configurations calibrated to the Premier League visual design language.
+ */
 @theme {
-  /* Παράδειγμα για την Πρόταση 1 (Official PL) */
+  /* Brand surface colors */
   --color-canvas: #0d021a;
   --color-panel: #18082e;
   --color-panel-border: #2d164d;
   --color-pl-green: #00ff87;
   --color-pl-pink: #ff2882;
 
-  /* Custom Pitch Greens */
+  /* Tactical football turf styling tokens */
   --color-turf-light: #075e2b;
   --color-turf-dark: #054a22;
 }
 
 body {
-  background-color: #020617; /* slate-950 */
-  color: #f8fafc; /* slate-100 */
+  background-color: #020617; /* Slate 950 */
+  color: #f8fafc; /* Slate 100 */
   min-height: 100vh;
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Aesthetic Custom Scrollbar */
+/* Custom scrollbar track and thumb styling for WebKit browsers */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -43,7 +47,7 @@ body {
   background: rgba(0, 255, 135, 0.5); /* Premier League Green Glow */
 }
 
-/* Firefox standard scrollbar */
+/* Standard scrollbar rules for Firefox */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.35) transparent;

@@ -1,11 +1,26 @@
 import React from 'react';
-import type {LineupPlayer} from '../types/fpl';
+import type { LineupPlayer } from '../types/fpl';
 import { PlayerCard } from './PlayerCard';
 
+/**
+ * Properties for the Pitch component.
+ */
 interface PitchProps {
+    /**
+     * Complete list of starting eleven players designated by the optimizer.
+     */
     starters: LineupPlayer[];
 }
 
+/**
+ * Visual football pitch component rendering the starting eleven across tactical lines.
+ *
+ * Filters starting squad members into position groups (Goalkeeper, Defenders, Midfielders, Forwards),
+ * organizing them into authentic formation lines with pitch markings and grass patterns.
+ *
+ * @param props - The component properties.
+ * @returns The rendered football pitch component.
+ */
 export const Pitch: React.FC<PitchProps> = ({ starters }) => {
     const goalkeepers = starters.filter((p) => p.position === 'GKP');
     const defenders = starters.filter((p) => p.position === 'DEF');

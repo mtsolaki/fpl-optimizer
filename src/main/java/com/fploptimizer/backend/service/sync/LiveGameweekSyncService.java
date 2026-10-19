@@ -1,4 +1,4 @@
-package com.fploptimizer.backend.service;
+package com.fploptimizer.backend.service.sync;
 
 import com.fploptimizer.backend.dto.live.LiveElementDto;
 import com.fploptimizer.backend.dto.live.LiveGameweekResponseDto;
@@ -22,7 +22,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Service used to collect and synchronize live/actual match statistics for every player.
+ * Service responsible for ingesting live and settled match performance statistics for all players.
+ * Fetches actual performance data from the official FPL live gameweek endpoint, updates
+ * PlayerGameweekLog entities with realized match outcomes, and calculates prediction discrepancy
+ * deltas against projected expected points (xP) for analytics and model backtesting.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
  */
 @Service
 @RequiredArgsConstructor
@@ -35,6 +41,15 @@ public class LiveGameweekSyncService {
     private final FixtureRepository fixtureRepository;
     private final GameweekRepository gameweekRepository;
 
+    /**
+     * Synchronizes realized statistics for all active players in a designated gameweek.
+     * Iterates through elements in the live payload, matches or initializes the corresponding
+     * PlayerGameweekLog, maps Opta and official FPL actual performance outcomes, computes prediction
+     * error deltas, and persists updates in batch.
+     *
+     * @param gameweekId the unique identifier of the target gameweek
+     * @param season     the competitive season string (e.g., "2026-2027")
+     */
     @Transactional
     public void syncEntireGameweek(int gameweekId, String season) {
         String url = "https://fantasy.premierleague.com/api/event/" + gameweekId + "/live/";
@@ -86,6 +101,14 @@ public class LiveGameweekSyncService {
         }
     }
 
+    /**
+     * Maps raw live statistics from the FPL API onto the embedded PlayerGameweekOutcome component.
+     * Computes the model projection discrepancy delta (Actual Points - Projected xP) if prior
+     * projections are present on the log.
+     *
+     * @param stats incoming live statistics payload
+     * @param log   target log entity to update
+     */
     private void mapStatsToOutcome(LiveStatsDto stats, PlayerGameweekLog log) {
         if (stats == null) return;
 
@@ -128,6 +151,16 @@ public class LiveGameweekSyncService {
         }
     }
 
+    /**
+     * Instantiates a new historical or backfill PlayerGameweekLog when none exists.
+     * Captures fixture home/away context, difficulty, and player set-piece responsibilities.
+     *
+     * @param fplPlayerId unique external FPL player identifier
+     * @param fixtureId   target fixture ID
+     * @param gameweek    associated gameweek entity
+     * @param season      target season identifier
+     * @return initialized PlayerGameweekLog or null if required entities are absent
+     */
     private PlayerGameweekLog createNewLog(int fplPlayerId, int fixtureId, Gameweek gameweek, String season) {
         Player player = playerRepository.findByFplId(fplPlayerId).orElse(null);
         Fixture fixture = fixtureRepository.findById(fixtureId).orElse(null);
@@ -160,6 +193,12 @@ public class LiveGameweekSyncService {
         return newLog;
     }
 
+    /**
+     * Safely converts string-encoded metric values to Double.
+     *
+     * @param value the string representation of a floating-point value
+     * @return parsed Double value, or 0.0 if unparseable or blank
+     */
     private Double parseDouble(String value) {
         if (value == null || value.isBlank()) {
             return 0.0;

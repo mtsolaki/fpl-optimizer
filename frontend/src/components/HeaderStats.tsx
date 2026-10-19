@@ -1,13 +1,34 @@
 import React from 'react';
-import type {UserLineupResponse} from '../types/fpl';
+import type { UserLineupResponse } from '../types/fpl';
 import { Shield, TrendingUp, Award, Wallet } from 'lucide-react';
 
+/**
+ * Properties for the HeaderStats component.
+ */
 interface HeaderStatsProps {
+    /**
+     * Lineup response payload containing formation, total xP, captains, and finances.
+     */
     lineup: UserLineupResponse;
 }
 
+/**
+ * Executive dashboard overview tile component summarizing squad lineup metrics.
+ *
+ * Displays the optimal formation structure, total projected expected points (including captaincy bonus),
+ * designated captain / vice-captain names, and financial metrics (team value and remaining bank budget).
+ *
+ * @param props - The component properties.
+ * @returns The rendered executive statistics bar.
+ */
 export const HeaderStats: React.FC<HeaderStatsProps> = ({ lineup }) => {
-    const formatPriceValue = (val: number) => {
+    /**
+     * Normalizes and formats financial values into standard millions notation (e.g. £100.2m).
+     *
+     * @param val - Financial value (either in millions or tenths of millions).
+     * @returns Formatted currency string.
+     */
+    const formatPriceValue = (val: number): string => {
         const normalized = val > 1000 ? (val / 10).toFixed(1) : val.toFixed(1);
         return `£${normalized}m`;
     };
@@ -31,12 +52,12 @@ export const HeaderStats: React.FC<HeaderStatsProps> = ({ lineup }) => {
                         <Shield className="h-5 w-5" />
                     </div>
                     <div className="relative z-10">
-            <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
-              Formation
-            </span>
+                        <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
+                            Formation
+                        </span>
                         <span className="text-base font-extrabold text-white font-mono">
-              {lineup.formation}
-            </span>
+                            {lineup.formation}
+                        </span>
                     </div>
                 </div>
 
@@ -54,12 +75,12 @@ export const HeaderStats: React.FC<HeaderStatsProps> = ({ lineup }) => {
                         <TrendingUp className="h-5 w-5" />
                     </div>
                     <div className="relative z-10">
-            <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
-              Projected xP
-            </span>
+                        <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
+                            Projected xP
+                        </span>
                         <span className="text-base font-black text-pl-green font-mono drop-shadow-[0_0_8px_rgba(0,255,135,0.3)]">
-              {lineup.totalProjectedXp.toFixed(2)}
-            </span>
+                            {lineup.totalProjectedXp.toFixed(2)}
+                        </span>
                     </div>
                 </div>
 
@@ -78,13 +99,13 @@ export const HeaderStats: React.FC<HeaderStatsProps> = ({ lineup }) => {
                         <Award className="h-5 w-5" />
                     </div>
                     <div className="relative z-10 min-w-0 flex-1">
-            <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
-              Captain (C/V)
-            </span>
+                        <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
+                            Captain (C/V)
+                        </span>
                         <span className="block truncate text-xs font-bold text-white">
-              <span className="text-pl-gold font-extrabold">{lineup.captain.webName}</span>
-              <span className="text-slate-400 font-normal"> / {lineup.viceCaptain.webName}</span>
-            </span>
+                            <span className="text-pl-gold font-extrabold">{lineup.captain.webName}</span>
+                            <span className="text-slate-400 font-normal"> / {lineup.viceCaptain.webName}</span>
+                        </span>
                     </div>
                 </div>
 
@@ -104,13 +125,13 @@ export const HeaderStats: React.FC<HeaderStatsProps> = ({ lineup }) => {
                         <Wallet className="h-5 w-5" />
                     </div>
                     <div className="relative z-10">
-            <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
-              Team Value (Bank)
-            </span>
+                        <span className="block text-[10px] font-black tracking-wider text-slate-400 uppercase font-mono">
+                            Team Value (Bank)
+                        </span>
                         <span className="text-xs font-bold text-white font-mono">
-              {formatPriceValue(lineup.teamValue)}{' '}
+                            {formatPriceValue(lineup.teamValue)}{' '}
                             <span className="text-pl-green font-medium">({formatPriceValue(lineup.bank)})</span>
-            </span>
+                        </span>
                     </div>
                 </div>
 

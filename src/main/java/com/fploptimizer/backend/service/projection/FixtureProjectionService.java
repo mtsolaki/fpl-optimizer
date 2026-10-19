@@ -23,6 +23,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Service responsible for calculating and persisting team-level match projections for a given gameweek.
+ * Orchestrates league table stand snapshots, squad roster aggregation, and Poisson match simulation
+ * via FixtureStrengthEngine. Persists baseline ratings, team degradation, motivation multipliers,
+ * expected goal rates (lambdas), and clean sheet probabilities for both participating clubs.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -33,12 +42,17 @@ public class FixtureProjectionService {
     private final FixtureStrengthEngine fixtureStrengthEngine;
 
     private final FixtureRepository fixtureRepository;
-    private final PlayerRepository  playerRepository;
+    private final PlayerRepository playerRepository;
     private final FixtureProjectionRepository fixtureProjectionRepository;
 
-
-
-
+    /**
+     * Executes team strength and scoreline projections for all scheduled fixtures in a target gameweek.
+     * Pre-loads players, standings, and existing projection records to prevent MapsId identifier collisions,
+     * computes full match contexts via FixtureStrengthEngine, and batch-persists results.
+     *
+     * @param gameweek the target gameweek round number
+     * @return list of persisted FixtureProjection entities
+     */
     public List<FixtureProjection> calculateAndPersistProjections(int gameweek) {
         log.info("Starting projection calculation for gameweek: {}", gameweek);
         Map<Integer, LeagueStandingsSnapshot> standings = leagueStandingsService.calculateStandingsUpToGameweek(gameweek);
@@ -55,7 +69,7 @@ public class FixtureProjectionService {
                 .filter(p -> p.getTeam() != null)
                 .collect(Collectors.groupingBy(p -> p.getTeam().getId()));
 
-        // Προ-φόρτωση υπαρχόντων projections για την αποφυγή conflict με το @MapsId
+        // Pre-fetch existing projections to avoid primary key conflicts with @MapsId
         Map<Integer, FixtureProjection> existingProjections = fixtureProjectionRepository.findAllById(
                 fixtures.stream().map(Fixture::getId).toList()
         ).stream().collect(Collectors.toMap(FixtureProjection::getId, fp -> fp));
@@ -91,7 +105,7 @@ public class FixtureProjectionService {
                     awayStandings
             );
 
-            // Εύρεση υπάρχοντος ή δημιουργία νέου
+            // Retrieve existing or initialize a new projection entity
             FixtureProjection projection = existingProjections.getOrDefault(fixture.getId(), new FixtureProjection());
             populateProjection(projection, fixture, gameweek, matchContext);
             projectionsToSave.add(projection);
@@ -103,11 +117,19 @@ public class FixtureProjectionService {
         return savedProjections;
     }
 
+    /**
+     * Maps calculated MatchContext outputs and post-match realization metrics onto a FixtureProjection entity.
+     *
+     * @param projection target projection entity to populate
+     * @param fixture    underlying fixture entity
+     * @param gameweek   the gameweek identifier
+     * @param context    computed team projections and environmental multipliers
+     */
     private void populateProjection(FixtureProjection projection, Fixture fixture, int gameweek, MatchContext context) {
         TeamStrengthProjection home = context.homeProjection();
         TeamStrengthProjection away = context.awayProjection();
 
-        // Το fixture θέτει αυτόματα το id μέσω του @MapsId
+        // Target fixture automatically assigns ID via JPA @MapsId
         projection.setFixture(fixture);
         projection.setGameweek(gameweek);
         projection.setHomeTeam(fixture.getHomeTeam());
@@ -135,7 +157,7 @@ public class FixtureProjectionService {
         projection.setAwayLambda(away.expectedGoals());
         projection.setAwayCleanSheetProb(away.cleanSheetProbability());
 
-        // Post-match evaluation metrics
+        // Post-match evaluation metrics for completed matches
         if (Boolean.TRUE.equals(fixture.getFinished())
                 && fixture.getHomeTeamScore() != null
                 && fixture.getAwayTeamScore() != null) {
@@ -146,5 +168,4 @@ public class FixtureProjectionService {
             projection.setAwayCsHit(fixture.getHomeTeamScore() == 0);
         }
     }
-
 }

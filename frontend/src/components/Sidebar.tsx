@@ -9,15 +9,39 @@ import {
     Cpu
 } from 'lucide-react';
 
+/**
+ * Model describing a primary navigation feature module in the application sidebar.
+ */
 export interface NavFeature {
+    /**
+     * Unique module identifier key.
+     */
     id: string;
+    /**
+     * Display label for the navigation item.
+     */
     label: string;
+    /**
+     * Subtext describing module capabilities.
+     */
     description: string;
+    /**
+     * Lucide icon component reference.
+     */
     icon: LucideIcon;
+    /**
+     * Optional status pill badge (e.g. 'Core', 'Live', 'Soon').
+     */
     badge?: string;
+    /**
+     * Availability flag determining if module is active and clickable.
+     */
     isAvailable: boolean;
 }
 
+/**
+ * Static registry of application navigation modules.
+ */
 export const NAVIGATION_FEATURES: NavFeature[] = [
     {
         id: 'optimizer',
@@ -61,11 +85,26 @@ export const NAVIGATION_FEATURES: NavFeature[] = [
     },
 ];
 
+/**
+ * Properties for the Sidebar navigation component.
+ */
 interface SidebarProps {
+    /**
+     * Identifier of the currently active navigation view.
+     */
     activeFeatureId: string;
+    /**
+     * Callback dispatched when a module item is selected.
+     */
     onSelectFeature: (id: string) => void;
 }
 
+/**
+ * Application sidebar navigation bar providing module switching and engine status indicators.
+ *
+ * @param props - The component properties.
+ * @returns The rendered sidebar navigation rail.
+ */
 export const Sidebar: React.FC<SidebarProps> = ({
                                                     activeFeatureId,
                                                     onSelectFeature,
@@ -91,9 +130,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Section Header */}
                 <div className="hidden lg:flex items-center justify-between px-2 mb-2.5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-mono">
-            Tactical Modules
-          </span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-mono">
+                        Tactical Modules
+                    </span>
                     <span className="h-1.5 w-1.5 rounded-full bg-pl-green shadow-[0_0_6px_#00ff87]" />
                 </div>
 
@@ -134,9 +173,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {/* Tile Label & Meta */}
                             <div className="hidden lg:flex flex-col min-w-0 flex-1 font-mono">
                                 <div className="flex items-center justify-between gap-1.5">
-                  <span className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-200'}`}>
-                    {item.label}
-                  </span>
+                                    <span className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-200'}`}>
+                                        {item.label}
+                                    </span>
 
                                     {item.badge && (
                                         <span
@@ -148,14 +187,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                         : 'bg-slate-900 text-slate-500 border border-panel-border'
                                             }`}
                                         >
-                      {item.badge}
-                    </span>
+                                            {item.badge}
+                                        </span>
                                     )}
                                 </div>
 
                                 <span className="text-[10px] text-slate-400 truncate mt-0.5">
-                  {item.description}
-                </span>
+                                    {item.description}
+                                </span>
                             </div>
                         </button>
                     );
@@ -165,18 +204,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Engine Status Footer */}
             <div className="relative z-10 p-2.5 rounded-2xl bg-canvas/80 border border-panel-border flex items-center justify-center lg:justify-between shadow-inner">
                 <div className="flex items-center gap-2.5 min-w-0">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pl-green opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-pl-green" />
-          </span>
+                    <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pl-green opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-pl-green" />
+                    </span>
 
                     <div className="hidden lg:flex flex-col min-w-0 font-mono">
-            <span className="text-[10px] font-black text-slate-200 uppercase tracking-tight">
-              Poisson Engine
-            </span>
+                        <span className="text-[10px] font-black text-slate-200 uppercase tracking-tight">
+                            Poisson Engine
+                        </span>
                         <span className="text-[9px] text-pl-green truncate">
-              localhost:8080
-            </span>
+                            localhost:8080
+                        </span>
                     </div>
                 </div>
 

@@ -6,7 +6,18 @@ import com.fploptimizer.backend.service.projection.model.PlayerCardsResult;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-
+/**
+ * Computational engine responsible for evaluating disciplinary risk (expected yellow and red cards).
+ *
+ * Implements a Bayesian blending approach:
+ * 1. Establishes positional priors based on historical Premier League disciplinary benchmarks.
+ * 2. Derives baseline season-long per-90 rates from accumulated player performance metrics.
+ * 3. Blends seasonal expectations with short-term form from recent match logs.
+ * 4. Scales blended card rates by the player's projected pitch minutes.
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
+ */
 @Component
 public class PlayerCardsEngine {
 
@@ -27,6 +38,17 @@ public class PlayerCardsEngine {
     private static final double SAMPLE_MINUTES_THRESHOLD = 270.0;
     private static final double MIN_MINUTES_TO_CONSIDER = 45.0;
 
+    /**
+     * Projects expected yellow and red cards for a player in an upcoming match.
+     *
+     * Aggregates recent cards and minutes from historical logs, blends empirical rates
+     * with seasonal or prior baselines, and normalizes by projected playing time.
+     *
+     * @param player           the target player entity
+     * @param projectedMinutes expected on-pitch playing time in minutes
+     * @param gameweekLogs     historical match logs for recent disciplinary trends
+     * @return a PlayerCardsResult containing projected expected yellow and red cards
+     */
     public PlayerCardsResult calculatePlayerCards(
             Player player,
             double projectedMinutes,
@@ -73,6 +95,15 @@ public class PlayerCardsEngine {
 
     }
 
+    /**
+     * Resolves the baseline expected yellow cards per 90 minutes.
+     *
+     * If the player has accumulated at least 90 minutes in the current campaign,
+     * the empirical rate is utilized; otherwise, defaults to the positional prior.
+     *
+     * @param player the player entity being evaluated
+     * @return seasonal yellow card rate per 90 minutes
+     */
     private double resolveYellowCardsPer90(Player player) {
         if (player == null) {
             return 0.0;
@@ -97,6 +128,15 @@ public class PlayerCardsEngine {
         return 0.0;
     }
 
+    /**
+     * Resolves the baseline expected red cards per 90 minutes.
+     *
+     * If empirical minutes meet the 90-minute threshold, calculates the player's realized
+     * rate; otherwise, falls back to positional prior expectations.
+     *
+     * @param player the player entity being evaluated
+     * @return seasonal red card rate per 90 minutes
+     */
     private double resolveRedCardsPer90(Player player) {
         if (player == null) {
             return 0.0;
@@ -121,6 +161,17 @@ public class PlayerCardsEngine {
         return 0.0;
     }
 
+    /**
+     * Blends the long-term seasonal per-90 rate with the player's recent sample rate.
+     *
+     * Applies dynamic weight scaling up to MAX_RECENT_WEIGHT as recent minutes
+     * approach the sample threshold.
+     *
+     * @param seasonRatePer90    the baseline seasonal rate
+     * @param totalRecentMetric  total count of events (cards) across recent gameweeks
+     * @param totalRecentMinutes total minutes played across recent gameweeks
+     * @return the blended per-90 rate
+     */
     private double blendRatePer90(double seasonRatePer90, double totalRecentMetric, double totalRecentMinutes) {
         if (totalRecentMinutes < MIN_MINUTES_TO_CONSIDER) {
             return seasonRatePer90;

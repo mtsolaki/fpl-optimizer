@@ -1,8 +1,8 @@
 package com.fploptimizer.backend.scheduler;
 
-import com.fploptimizer.backend.service.FplDataSyncService;
+import com.fploptimizer.backend.service.sync.FplDataSyncService;
 import com.fploptimizer.backend.service.GameweekReconciliationService;
-import com.fploptimizer.backend.service.GameweekProjectionBatchService;
+import com.fploptimizer.backend.service.projection.GameweekProjectionBatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,10 +12,20 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Orchestrates the recurring pipeline lifecycle:
- * 1. Synchronizes latest FPL static data and fixtures.
- * 2. Reconciles missing outcomes for finished gameweeks.
- * 3. Triggers model projections based on fresh data.
+ * Orchestrator responsible for the automated lifecycle execution of the FPL data pipeline.
+ *
+ * <p>Coordinates recurring scheduled cron tasks and startup event listeners to guarantee that
+ * data synchronization, match outcome settlements, and mathematical projections remain up to date.
+ * The pipeline executes sequentially across three critical stages:
+ * <ol>
+ *   <li><b>Metadata Ingestion:</b> Pulls the latest static metadata and fixture statuses via {@link FplDataSyncService}.</li>
+ *   <li><b>Historical Reconciliation:</b> Resolves and settles realized outcomes for finalized gameweeks via {@link GameweekReconciliationService}.</li>
+ *   <li><b>Batch Projections:</b> Executes backfilling for missing completed gameweeks and generates forward-looking multi-gameweek projections via {@link GameweekProjectionBatchService}.</li>
+ * </ol>
+ * </p>
+ *
+ * @author Maria Tsolaki
+ * @version 1.0
  */
 @Slf4j
 @Component
@@ -30,8 +40,12 @@ public class GameweekPipelineScheduler {
     private String currentSeason;
 
     /**
-     * Executes immediately once the application context is fully initialized.
-     * Guarantees that historical gameweeks (GW1-GW6) are backfilled on first startup.
+     * Application lifecycle hook executed immediately after the Spring application context has fully initialized.
+     *
+     * <p>Ensures immediate cold-start synchronization, verifying that any historical gameweeks
+     * lacking projections or outcomes are reconciled without waiting for the first cron cycle.</p>
+     *
+     * @see ApplicationReadyEvent
      */
     @EventListener(ApplicationReadyEvent.class)
     public void executeOnStartup() {
@@ -40,7 +54,10 @@ public class GameweekPipelineScheduler {
     }
 
     /**
-     * Runs every hour at the top of the hour (e.g. 12:00, 13:00, 14:00).
+     * Recurring cron job executed at the beginning of every hour (e.g., 12:00, 13:00, 14:00).
+     *
+     * <p>Maintains near real-time synchronization with official FPL price changes, injury reports,
+     * fixture status updates, and completed match results.</p>
      */
     @Scheduled(cron = "0 0 * * * *")
     public void executeScheduledPipeline() {
@@ -49,7 +66,10 @@ public class GameweekPipelineScheduler {
     }
 
     /**
-     * The sequential lifecycle flow.
+     * Orchestrates the linear, multiphase execution of the data pipeline.
+     *
+     * <p>Executes within an isolated exception-handling boundary to prevent uncaught runtime
+     * exceptions from terminating the Spring scheduler daemon thread.</p>
      */
     private void executePipeline() {
         try {
