@@ -1,9 +1,8 @@
-
 services:
   postgres:
     image: postgres:16
     container_name: fpl_postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -12,6 +11,7 @@ services:
       - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db-backups:/backups
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
@@ -23,7 +23,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: fpl_backend
-    restart: always
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,10 +38,10 @@ services:
 
   frontend:
     build:
-      context: ./frontend      # Η διαδρομή προς τον φάκελο του React project
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: fpl_frontend
-    restart: always
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
@@ -49,3 +49,5 @@ services:
 
 volumes:
   postgres_data:
+    name: fpl_postgres_data
+    external: true
