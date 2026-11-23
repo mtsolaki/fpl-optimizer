@@ -88,7 +88,7 @@ public class FplApiClient {
         try {
             FplUserPicksResponse response = restTemplate.getForObject(url, FplUserPicksResponse.class);
             return Optional.ofNullable(response);
-        } catch (HttpClientErrorException.NotFound _) {
+        } catch (HttpClientErrorException.NotFound e) {
             log.warn("Team ID {} not found or gameweek {} has no picks", teamId, gameweek);
             return Optional.empty();
         } catch (Exception e) {

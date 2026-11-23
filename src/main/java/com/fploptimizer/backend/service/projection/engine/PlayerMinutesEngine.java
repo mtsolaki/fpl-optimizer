@@ -153,7 +153,7 @@ public class PlayerMinutesEngine {
         String status = player.getStatus();
 
         // Status codes: 'a' (available), 'd' (doubtful), 'u' (unavailable/unsettled)
-        if (status.equals("a") || status.equals("d") || status.equals("u")) {
+        if (status.equals("a") || status.equals("d")) {
             if (player.getMarketInfo() != null && player.getMarketInfo().getChanceOfPlayingThisRound() != null) {
                 return player.getMarketInfo().getChanceOfPlayingThisRound() / 100.0;
             }
