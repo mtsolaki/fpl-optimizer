@@ -60,7 +60,7 @@ public class Player {
 
 
 
-    @ManyToOne // Many players correspond to one team (foreign key)
+    @ManyToOne(fetch = FetchType.LAZY) // Many players correspond to one team (foreign key)
     @JoinColumn(name = "team_id")
     private Team team;
 }

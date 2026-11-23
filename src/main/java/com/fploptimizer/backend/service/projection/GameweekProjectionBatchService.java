@@ -1,6 +1,10 @@
 package com.fploptimizer.backend.service.projection;
 
-import com.fploptimizer.backend.entity.*;
+import com.fploptimizer.backend.entity.Fixture;
+import com.fploptimizer.backend.entity.FixtureProjection;
+import com.fploptimizer.backend.entity.Gameweek;
+import com.fploptimizer.backend.entity.Player;
+import com.fploptimizer.backend.entity.PlayerGameweekLog;
 import com.fploptimizer.backend.entity.player.PlayerGameweekProjection;
 import com.fploptimizer.backend.entity.player.PlayerMarketInfo;
 import com.fploptimizer.backend.repository.FixtureRepository;
@@ -17,12 +21,17 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Batch orchestration service managing the end-to-end execution of the projection pipeline.
-
+ * <p>
  * Coordinates multi-gameweek forward projection horizons and historical backfills.
  * Solves transactional self-invocation using @Lazy self-injection and eliminates N+1 query
  * performance bottlenecks using bulk lookups and in-memory Map structures.
@@ -74,10 +83,8 @@ public class GameweekProjectionBatchService {
     public void runProjectionsForUpcomingGameweeks(int horizon) {
         log.info("Resolving upcoming gameweeks for a {}-gameweek projection horizon...", horizon);
 
-        // 1. Identify upcoming unfinished gameweeks ordered chronologically
-        List<Gameweek> upcomingGameweeks = gameweekRepository.findAll().stream()
-                .filter(gw -> !Boolean.TRUE.equals(gw.getFinished()))
-                .sorted(Comparator.comparingInt(Gameweek::getId))
+        // 1. Identify upcoming unfinished gameweeks ordered chronologically via indexed query
+        List<Gameweek> upcomingGameweeks = gameweekRepository.findAllByFinishedFalseOrderByIdAsc().stream()
                 .limit(horizon)
                 .toList();
 
@@ -105,6 +112,7 @@ public class GameweekProjectionBatchService {
 
     /**
      * Core execution pipeline: computes fixture and player projections for an individual gameweek.
+     * <p>
      * Eliminates N+1 database queries by batch-loading historical logs and pre-existing gameweek logs
      * into hash-indexed collections, computes expected points (xP) for all active players,
      * and performs a batch upsert.
@@ -128,18 +136,11 @@ public class GameweekProjectionBatchService {
             return;
         }
 
-        // Map teamId to TeamStrengthProjection for O(1) in-memory lookups
+        // Map teamId to TeamStrengthProjection and scheduled Fixture for O(1) in-memory lookups
         Map<Integer, TeamStrengthProjection> teamProjectionsMap = buildTeamProjectionsMap(fixtureProjections);
+        Map<Integer, Fixture> teamFixtureMap = buildTeamFixtureMap(fixtureRepository.findByGameweek(gwId));
 
-        // 2. Load scheduled fixtures for this gameweek
-        List<Fixture> fixtures = fixtureRepository.findByGameweek(gwId);
-        Map<Integer, Fixture> teamFixtureMap = new HashMap<>();
-        for (Fixture f : fixtures) {
-            if (f.getHomeTeam() != null) teamFixtureMap.put(f.getHomeTeam().getId(), f);
-            if (f.getAwayTeam() != null) teamFixtureMap.put(f.getAwayTeam().getId(), f);
-        }
-
-        // 3. Batch load active players and settled historical logs up to this round
+        // 2. Batch load active players and settled historical logs up to this round
         List<Player> allPlayers = playerRepository.findAll();
         List<PlayerGameweekLog> allSettledLogs = logRepository.findAllSettledLogsUpToGameweek(gwId);
 
@@ -154,25 +155,25 @@ public class GameweekProjectionBatchService {
                 .collect(Collectors.toMap(
                         l -> l.getPlayer().getId(),
                         l -> l,
-                        (existing, replacement) -> existing
+                        (existing, _) -> existing
                 ));
 
         List<PlayerGameweekLog> logsToSave = new ArrayList<>();
 
-        // 4. Compute model projections for each registered player
+        // 3. Compute model projections for each registered player
         for (Player player : allPlayers) {
-            if (player.getTeam() == null) continue;
+            Integer teamId = player.getTeam() != null ? player.getTeam().getId() : null;
+            Fixture fixture = teamId != null ? teamFixtureMap.get(teamId) : null;
+            TeamStrengthProjection teamStrength = teamId != null ? teamProjectionsMap.get(teamId) : null;
 
-            int teamId = player.getTeam().getId();
-            Fixture fixture = teamFixtureMap.get(teamId);
-            TeamStrengthProjection teamStrength = teamProjectionsMap.get(teamId);
-
-            // Skip players whose teams do not play in this gameweek (Blank Gameweek)
+            // Skip players without a team or whose teams do not play in this gameweek (Blank Gameweek)
             if (fixture == null || teamStrength == null) {
                 continue;
             }
 
-            List<PlayerGameweekLog> playerHistoricalLogs = logsByPlayerCode.getOrDefault(player.getCode(), Collections.emptyList());
+            List<PlayerGameweekLog> playerHistoricalLogs = logsByPlayerCode.getOrDefault(
+                    player.getCode(), Collections.emptyList()
+            );
 
             // Compute expected points and granular metric projections
             PlayerGameweekProjection projection = playerProjectionService.calculatePlayerProjection(
@@ -191,11 +192,27 @@ public class GameweekProjectionBatchService {
             logsToSave.add(logEntry);
         }
 
-        // 5. Batch persist logs containing updated projections
+        // 4. Batch persist logs containing updated projections
         if (!logsToSave.isEmpty()) {
             logRepository.saveAll(logsToSave);
             log.info("Successfully persisted projections for {} players in GW {}", logsToSave.size(), gwId);
         }
+    }
+
+    /**
+     * Maps each participating team ID in a gameweek to its scheduled Fixture entity.
+     */
+    private Map<Integer, Fixture> buildTeamFixtureMap(List<Fixture> fixtures) {
+        Map<Integer, Fixture> teamFixtureMap = new HashMap<>();
+        for (Fixture f : fixtures) {
+            if (f.getHomeTeam() != null) {
+                teamFixtureMap.put(f.getHomeTeam().getId(), f);
+            }
+            if (f.getAwayTeam() != null) {
+                teamFixtureMap.put(f.getAwayTeam().getId(), f);
+            }
+        }
+        return teamFixtureMap;
     }
 
     /**
@@ -275,16 +292,15 @@ public class GameweekProjectionBatchService {
 
     /**
      * Identifies completed gameweeks that lack computed projections and backfills them sequentially.
+     * <p>
      * Ensures consistent backtesting data across past finished rounds without recomputing
      * already settled projections.
      */
     public void runProjectionsForCompletedGameweeks() {
         log.info("Checking for completed gameweeks lacking projections...");
 
-        // 1. Fetch completed gameweeks from persistence
-        List<Gameweek> finishedGameweeks = gameweekRepository.findAll().stream()
-                .filter(gw -> Boolean.TRUE.equals(gw.getFinished()))
-                .toList();
+        // 1. Fetch completed gameweeks ordered chronologically via indexed query
+        List<Gameweek> finishedGameweeks = gameweekRepository.findAllByFinishedTrueOrderByIdAsc();
 
         if (finishedGameweeks.isEmpty()) {
             log.info("No completed gameweeks found in database.");
@@ -298,7 +314,6 @@ public class GameweekProjectionBatchService {
         List<Integer> missingGwIds = finishedGameweeks.stream()
                 .map(Gameweek::getId)
                 .filter(id -> !existingProjectionGwIds.contains(id))
-                .sorted()
                 .toList();
 
         if (missingGwIds.isEmpty()) {

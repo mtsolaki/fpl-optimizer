@@ -3,6 +3,7 @@ package com.fploptimizer.backend.service.projection.engine;
 import com.fploptimizer.backend.entity.Player;
 import com.fploptimizer.backend.entity.PlayerGameweekLog;
 import com.fploptimizer.backend.entity.Position;
+import com.fploptimizer.backend.entity.player.PlayerGameweekOutcome;
 import com.fploptimizer.backend.service.projection.model.PlayerDefenceResult;
 import com.fploptimizer.backend.service.projection.model.TeamStrengthProjection;
 import com.fploptimizer.backend.service.projection.util.PoissonMathUtils;
@@ -12,7 +13,7 @@ import java.util.List;
 
 /**
  * Computational engine responsible for evaluating defensive metrics and probabilities for players.
- *
+ * <p>
  * Models clean sheet chances conditioned on playing 60+ minutes, calculates goals conceded penalties,
  * projects goalkeeper saves, and estimates defensive contribution points (DefCon) using Poisson distributions.
  *
@@ -38,16 +39,16 @@ public class PlayerDefenceEngine {
 
     /**
      * Calculates projected defensive statistics and point components for an upcoming fixture.
-     *
+     * <p>
      * Computes expected goals conceded, clean sheet probability (conditioned on completing 60+ minutes),
      * FPL goals conceded deduction penalties, goalkeeper saves, and the tail probability of reaching
      * the DefCon threshold (10+ actions).
      *
-     * @param player             the player entity to evaluate
-     * @param projectedMinutes   projected playing time in minutes
-     * @param plus60probability  probability that the player remains on pitch for at least 60 minutes
-     * @param teamProjection     team-level strength context and expected goals conceded
-     * @param gameweekLogs       recent match logs to blend empirical saves and defensive actions
+     * @param player            the player entity to evaluate
+     * @param projectedMinutes  projected playing time in minutes
+     * @param plus60probability probability that the player remains on pitch for at least 60 minutes
+     * @param teamProjection    team-level strength context and expected goals conceded
+     * @param gameweekLogs      recent match logs to blend empirical saves and defensive actions
      * @return a PlayerDefenceResult containing clean sheet odds, xGC, penalties, saves, and DefCon metrics
      */
     public PlayerDefenceResult calculatePlayerDefence(
@@ -76,40 +77,19 @@ public class PlayerDefenceEngine {
             goalsConcededPenalty = PoissonMathUtils.calculateExpectedGoalsConcededPenalty(expectedGoalsConceded);
         }
 
-        // Aggregate recent performance logs
-        double totalRecentMinutes = 0.0;
-        double totalRecentSaves = 0.0;
-        double totalRecentDefCon = 0.0;
-
-        if (gameweekLogs != null) {
-            for (PlayerGameweekLog log : gameweekLogs) {
-                if (log == null || log.getOutcome() == null) continue;
-
-                Integer mins = log.getOutcome().getActualMinutes();
-                if (mins != null && mins > 0) {
-                    totalRecentMinutes += mins;
-
-                    if (log.getOutcome().getActualSaves() != null) {
-                        totalRecentSaves += log.getOutcome().getActualSaves();
-                    }
-                    if (log.getOutcome().getActualDefensiveContribution() != null) {
-                        totalRecentDefCon += log.getOutcome().getActualDefensiveContribution();
-                    }
-                }
-            }
-        }
+        RecentDefenceTotals recent = aggregateRecentDefence(gameweekLogs);
 
         // Project goalkeeper saves if applicable
         double expectedSaves = 0.0;
         if (player.getPosition() == Position.GKP) {
             double seasonSavesPer90 = resolveSavesPer90(player);
-            double blendedSavesPer90 = blendRatePer90(seasonSavesPer90, totalRecentSaves, totalRecentMinutes);
+            double blendedSavesPer90 = blendRatePer90(seasonSavesPer90, recent.saves(), recent.minutes());
             expectedSaves = blendedSavesPer90 * (projectedMinutes / 90.0);
         }
 
         // Blend season and recent defensive contribution rates (DefCon per 90)
         double seasonDefCon90 = resolveDefensiveContributionPer90(player);
-        double blendedDefCon90 = blendRatePer90(seasonDefCon90, totalRecentDefCon, totalRecentMinutes);
+        double blendedDefCon90 = blendRatePer90(seasonDefCon90, recent.defCon(), recent.minutes());
 
         // Expected defensive actions (mean of Poisson distribution)
         double projectedDefCon = blendedDefCon90 * (projectedMinutes / 90.0);
@@ -128,8 +108,38 @@ public class PlayerDefenceEngine {
     }
 
     /**
+     * Aggregates realized minutes, goalkeeper saves, and defensive contributions across recent logs.
+     */
+    private RecentDefenceTotals aggregateRecentDefence(List<PlayerGameweekLog> gameweekLogs) {
+        if (gameweekLogs == null || gameweekLogs.isEmpty()) {
+            return new RecentDefenceTotals(0.0, 0.0, 0.0);
+        }
+
+        double totalMinutes = 0.0;
+        double totalSaves = 0.0;
+        double totalDefCon = 0.0;
+
+        for (PlayerGameweekLog log : gameweekLogs) {
+            PlayerGameweekOutcome outcome = (log != null) ? log.getOutcome() : null;
+            Integer mins = (outcome != null) ? outcome.getActualMinutes() : null;
+            if (mins == null || mins <= 0) {
+                continue;
+            }
+            totalMinutes += mins;
+            totalSaves += (outcome.getActualSaves() != null) ? outcome.getActualSaves() : 0;
+            totalDefCon += (outcome.getActualDefensiveContribution() != null)
+                    ? outcome.getActualDefensiveContribution() : 0;
+        }
+
+        return new RecentDefenceTotals(totalMinutes, totalSaves, totalDefCon);
+    }
+
+    private record RecentDefenceTotals(double minutes, double saves, double defCon) {
+    }
+
+    /**
      * Resolves the seasonal saves per 90 minutes for a goalkeeper.
-     *
+     * <p>
      * Falls back to the Premier League positional baseline if empirical metrics are absent.
      *
      * @param player the goalkeeper entity
@@ -140,7 +150,9 @@ public class PlayerDefenceEngine {
             return 0.0;
         }
 
-        if (player.getPerformance() != null && player.getPerformance().getSavesPer90() != null && player.getPerformance().getSavesPer90() > 0.0) {
+        if (player.getPerformance() != null
+                && player.getPerformance().getSavesPer90() != null
+                && player.getPerformance().getSavesPer90() > 0.0) {
             return player.getPerformance().getSavesPer90();
         }
 
@@ -149,7 +161,7 @@ public class PlayerDefenceEngine {
 
     /**
      * Resolves the baseline defensive contribution per 90 minutes rate.
-     *
+     * <p>
      * Uses recorded performance data if available; otherwise falls back to positional priors.
      *
      * @param player the player entity being evaluated
@@ -160,7 +172,9 @@ public class PlayerDefenceEngine {
             return 0.0;
         }
 
-        if (player.getPerformance() != null && player.getPerformance().getDefensiveContributionPer90() != null && player.getPerformance().getDefensiveContributionPer90() > 0.0) {
+        if (player.getPerformance() != null
+                && player.getPerformance().getDefensiveContributionPer90() != null
+                && player.getPerformance().getDefensiveContributionPer90() > 0.0) {
             return player.getPerformance().getDefensiveContributionPer90();
         }
 

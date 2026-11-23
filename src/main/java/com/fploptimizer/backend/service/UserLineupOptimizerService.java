@@ -13,14 +13,21 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Service providing mathematical squad lineup optimization and tactical advisory for FPL squads.
- * Fetches user picks from the official FPL API, enriches the 15-player squad with projected model stats,
- * iterates across all 8 valid FPL tactical formations to maximize aggregate starting expected points (xP),
- * determines substitute bench hierarchy, and selects optimal captain and vice-captain designations.
+ * <p>
+ * Fetches user picks from the official FPL API and enriches the 15-player squad with projected stats.
+ * Evaluates all 8 valid FPL formations to maximize starting expected points (xP), orders the bench,
+ * and selects optimal captain and vice-captain designations.
  *
  * @author Maria Tsolaki
  * @version 1.0
@@ -45,8 +52,10 @@ public class UserLineupOptimizerService {
 
     /**
      * Calculates the optimal starting eleven, bench ordering, and captaincy designation for a manager squad.
-     * Retrieves current squad picks, enriches each player with projection data, evaluates each valid formation
-     * to identify the highest expected points lineup, and applies safety locks for captain and vice-captain selection.
+     * <p>
+     * Retrieves current squad picks, enriches each player with projection data, and evaluates each valid
+     * formation to identify the highest expected points lineup. Applies safety locks for captain and
+     * vice-captain selection.
      *
      * @param teamId   unique FPL entry identifier of the manager squad
      * @param gameweek target gameweek round number
@@ -65,9 +74,8 @@ public class UserLineupOptimizerService {
         // 3. Group and rank players within each position by descending projected xP
         Map<Position, List<SquadCandidate>> byPos = groupAndSortByPosition(squad);
 
-        // Safe extraction of goalkeepers
+        // Safe extraction of backup goalkeeper
         List<SquadCandidate> gkps = byPos.getOrDefault(Position.GKP, List.of());
-        SquadCandidate starterGkp = !gkps.isEmpty() ? gkps.get(0) : null;
         SquadCandidate benchGkp = gkps.size() > 1 ? gkps.get(1) : null;
 
         String bestFormation = "3-4-3";
@@ -84,14 +92,7 @@ public class UserLineupOptimizerService {
             List<SquadCandidate> currentStarters = new ArrayList<>();
             List<SquadCandidate> currentBench = new ArrayList<>();
 
-            // Assign starting and backup goalkeepers
-            if (starterGkp != null) {
-                currentStarters.add(starterGkp);
-            }
-            if (benchGkp != null) {
-                currentBench.add(benchGkp);
-            }
-
+            partitionBySlots(byPos.get(Position.GKP), 1, currentStarters, currentBench);
             partitionBySlots(byPos.get(Position.DEF), needDef, currentStarters, currentBench);
             partitionBySlots(byPos.get(Position.MID), needMid, currentStarters, currentBench);
             partitionBySlots(byPos.get(Position.FWD), needFwd, currentStarters, currentBench);
@@ -123,12 +124,6 @@ public class UserLineupOptimizerService {
                 .sorted(Comparator.comparingDouble(SquadCandidate::projectedXp).reversed())
                 .toList();
 
-        List<SquadCandidate> sortedBench = new ArrayList<>();
-        if (benchGkp != null) {
-            sortedBench.add(benchGkp);
-        }
-        sortedBench.addAll(outfieldBench);
-
         // 7. Select Captain & Vice-Captain using the safety lock algorithm
         CaptaincyPick captaincy = selectCaptains(bestStarters);
         SquadCandidate captain = captaincy.captain();
@@ -140,13 +135,15 @@ public class UserLineupOptimizerService {
 
         // 8. Map candidates to presentation DTOs
         List<LineupPlayerDto> starterDtos = bestStarters.stream()
-                .map(c -> toLineupPlayerDto(c, c.equals(captain), c.equals(viceCaptain), null))
+                .map(c -> toLineupPlayerDto(c, Objects.equals(c, captain), Objects.equals(c, viceCaptain), null))
                 .toList();
 
         List<LineupPlayerDto> benchDtos = new ArrayList<>();
-        benchDtos.add(toLineupPlayerDto(sortedBench.get(0), false, false, 0)); // GK Substitute (Order 0)
-        for (int i = 1; i < sortedBench.size(); i++) {
-            benchDtos.add(toLineupPlayerDto(sortedBench.get(i), false, false, i)); // Outfield Subs (Orders 1, 2, 3)
+        if (benchGkp != null) {
+            benchDtos.add(toLineupPlayerDto(benchGkp, false, false, 0)); // GK Substitute (Order 0)
+        }
+        for (int i = 0; i < outfieldBench.size(); i++) {
+            benchDtos.add(toLineupPlayerDto(outfieldBench.get(i), false, false, i + 1)); // Outfield Subs (Orders 1, 2, 3)
         }
 
         FplUserPicksResponse.EntryHistory history = picksResponse.entryHistory();
@@ -172,7 +169,7 @@ public class UserLineupOptimizerService {
      * @param isCaptain     true if designated as team captain
      * @param isViceCaptain true if designated as vice-captain
      * @param benchOrder    bench priority index (0 for sub GK, 1-3 for outfield bench, null for starters)
-     * @return populated LineupPlayerDto
+     * @return populated LineupPlayerDto, or null if candidate is null
      */
     private LineupPlayerDto toLineupPlayerDto(
             SquadCandidate candidate,
@@ -180,6 +177,10 @@ public class UserLineupOptimizerService {
             boolean isViceCaptain,
             Integer benchOrder
     ) {
+        if (candidate == null) {
+            return null;
+        }
+
         Player p = candidate.player();
         Double price = (p.getMarketInfo() != null && p.getMarketInfo().getCurrentPrice() != null)
                 ? p.getMarketInfo().getCurrentPrice()
@@ -205,7 +206,9 @@ public class UserLineupOptimizerService {
 
     /**
      * Loads squad members from local storage and pairs them with projections for the target round.
-     * Performs bulk lookups across player entities and gameweek logs to avoid N+1 database queries.
+     * <p>
+     * Performs bulk lookups across player entities and gameweek logs to avoid N+1 database queries
+     * and aggregates projections across multiple fixtures during Double Gameweeks.
      *
      * @param picksResponse raw picks payload from the FPL API
      * @param gameweek      target gameweek ID
@@ -215,6 +218,10 @@ public class UserLineupOptimizerService {
             FplUserPicksResponse picksResponse,
             int gameweek
     ) {
+        if (picksResponse == null || picksResponse.picks() == null) {
+            return List.of();
+        }
+
         List<Integer> fplIds = picksResponse.picks().stream()
                 .map(FplUserPicksResponse.PickItem::elementId)
                 .toList();
@@ -222,14 +229,18 @@ public class UserLineupOptimizerService {
         // 1. Batch load player entities
         List<Player> players = playerRepository.findByFplIdIn(fplIds);
         Map<Integer, Player> playerByFplId = players.stream()
-                .collect(Collectors.toMap(Player::getId, p -> p));
+                .collect(Collectors.toMap(Player::getId, p -> p, (existing, _) -> existing));
 
-        // 2. Batch load gameweek projections
+        // 2. Batch load gameweek projections (safely summing multiple fixtures in Double Gameweeks)
         List<Integer> playerCodes = players.stream().map(Player::getCode).toList();
-        Map<Integer, PlayerGameweekLog> logsByCode = playerGameweekLogRepository
+        Map<Integer, RoundProjection> projectionsByCode = playerGameweekLogRepository
                 .findByPlayerCodeInAndGameweekId(playerCodes, gameweek)
                 .stream()
-                .collect(Collectors.toMap(log -> log.getPlayer().getCode(), log -> log));
+                .collect(Collectors.toMap(
+                        entry -> entry.getPlayer().getCode(),
+                        RoundProjection::fromLog,
+                        RoundProjection::add
+                ));
 
         // 3. Assemble candidate records
         List<SquadCandidate> candidates = new ArrayList<>();
@@ -240,18 +251,15 @@ public class UserLineupOptimizerService {
                 continue;
             }
 
-            PlayerGameweekLog logItem = logsByCode.get(player.getCode());
-            double xp = (logItem != null && logItem.getProjection().getProjectedXp() != null)
-                    ? logItem.getProjection().getProjectedXp() : 0.0;
-            double minutes = (logItem != null && logItem.getProjection().getProjectedMinutes() != null)
-                    ? logItem.getProjection().getProjectedMinutes() : 0.0;
+            RoundProjection projection = projectionsByCode.getOrDefault(player.getCode(), RoundProjection.EMPTY);
+            String news = player.getMarketInfo() != null ? player.getMarketInfo().getNews() : null;
 
             candidates.add(new SquadCandidate(
                     player,
-                    xp,
-                    minutes,
+                    projection.xp(),
+                    projection.minutes(),
                     player.getStatus() != null ? player.getStatus() : "a",
-                    player.getMarketInfo().getNews()
+                    news
             ));
         }
 
@@ -260,6 +268,7 @@ public class UserLineupOptimizerService {
 
     /**
      * Selects captain and vice-captain using a safety-lock algorithm.
+     * <p>
      * Requires candidates to be fully available (status 'a') with at least 70 expected minutes
      * to eliminate rotation vulnerabilities from doubled armbands.
      *
@@ -267,6 +276,10 @@ public class UserLineupOptimizerService {
      * @return CaptaincyPick record with designated captain and vice-captain
      */
     private CaptaincyPick selectCaptains(List<SquadCandidate> starters) {
+        if (starters == null || starters.isEmpty()) {
+            return new CaptaincyPick(null, null);
+        }
+
         // Filter candidates through the safety lock criteria
         List<SquadCandidate> safeCandidates = starters.stream()
                 .filter(c -> "a".equalsIgnoreCase(c.status()) && c.projectedMinutes() >= 70.0)
@@ -277,10 +290,10 @@ public class UserLineupOptimizerService {
         SquadCandidate viceCaptain;
 
         if (safeCandidates.size() >= 2) {
-            captain = safeCandidates.get(0);
+            captain = safeCandidates.getFirst();
             viceCaptain = safeCandidates.get(1);
         } else if (safeCandidates.size() == 1) {
-            captain = safeCandidates.get(0);
+            captain = safeCandidates.getFirst();
             viceCaptain = starters.stream()
                     .filter(c -> !c.equals(captain))
                     .max(Comparator.comparingDouble(SquadCandidate::projectedXp))
@@ -290,14 +303,34 @@ public class UserLineupOptimizerService {
             List<SquadCandidate> sortedAll = starters.stream()
                     .sorted(Comparator.comparingDouble(SquadCandidate::projectedXp).reversed())
                     .toList();
-            captain = sortedAll.get(0);
+            captain = sortedAll.getFirst();
             viceCaptain = sortedAll.size() > 1 ? sortedAll.get(1) : captain;
         }
 
         return new CaptaincyPick(captain, viceCaptain);
     }
 
-    private record CaptaincyPick(SquadCandidate captain, SquadCandidate viceCaptain) {}
+    private record CaptaincyPick(SquadCandidate captain, SquadCandidate viceCaptain) {
+    }
+
+    private record RoundProjection(double xp, double minutes) {
+        static final RoundProjection EMPTY = new RoundProjection(0.0, 0.0);
+
+        static RoundProjection fromLog(PlayerGameweekLog entry) {
+            if (entry == null || entry.getProjection() == null) {
+                return EMPTY;
+            }
+            double xp = entry.getProjection().getProjectedXp() != null
+                    ? entry.getProjection().getProjectedXp() : 0.0;
+            double minutes = entry.getProjection().getProjectedMinutes() != null
+                    ? entry.getProjection().getProjectedMinutes() : 0.0;
+            return new RoundProjection(xp, minutes);
+        }
+
+        RoundProjection add(RoundProjection other) {
+            return new RoundProjection(this.xp + other.xp, this.minutes + other.minutes);
+        }
+    }
 
     /**
      * Splits positional candidates into starting slots and bench slots based on formation needs.
@@ -313,7 +346,9 @@ public class UserLineupOptimizerService {
             List<SquadCandidate> startersTarget,
             List<SquadCandidate> benchTarget
     ) {
-        if (positionCandidates == null) return;
+        if (positionCandidates == null) {
+            return;
+        }
         for (int i = 0; i < positionCandidates.size(); i++) {
             if (i < starterSlots) {
                 startersTarget.add(positionCandidates.get(i));
@@ -349,7 +384,8 @@ public class UserLineupOptimizerService {
             double projectedMinutes,
             String status,
             String news
-    ) {}
+    ) {
+    }
 
     /**
      * Retrieves squad picks from the official FPL API, falling back to earlier rounds if future gameweeks are not yet open.

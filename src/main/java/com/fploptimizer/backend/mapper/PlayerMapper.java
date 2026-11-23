@@ -102,7 +102,7 @@ public class PlayerMapper {
         }
         try {
             return Double.parseDouble(value.trim());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }

@@ -4,7 +4,7 @@ import com.fploptimizer.backend.service.projection.model.LeagueStandingsSnapshot
 import org.springframework.stereotype.Component;
 /**
  * Computational engine evaluating team motivation multipliers based on league table context and match stakes.
- *
+ * <p>
  * Quantifies psychological and competitive urgency as the season approaches its conclusion.
  * Teams fighting relegation, challenging for the title, or chasing European qualification receive an
  * intensity boost, whereas safe mid-table teams with nothing left to play for ("on the beach") experience
@@ -29,7 +29,7 @@ public class MatchStakesEngine {
 
     /**
      * Calculates the overall motivation multiplier for a team given its current standings and target gamewee.
-     *
+     * <p>
      * In the early and middle parts of the season (prior to gameweek 25), stakes are assumed neutral (1.0).
      * In the closing stretch (GW25 to GW38), the contextual delta is scaled progressively by the
      * season progress weight factor (tau), producing a multiplier clamped within [0.90, 1.10].
@@ -54,7 +54,7 @@ public class MatchStakesEngine {
 
     /**
      * Determines the linear season progression scaling factor (tau) in the range [0.0, 1.0].
-     *
+     * <p>
      * Scales urgency linearly from gameweek 25 (tau approx. 0.08) through the final round GW38 (tau = 1.0).
      *
      * @param gameweek the target gameweek
@@ -67,7 +67,7 @@ public class MatchStakesEngine {
 
     /**
      * Resolves the competitive context delta according to the team's standing position and point margins.
-     *
+     * <p>
      * Evaluates criteria in priority sequence:
      * 1. Relegation struggle: Team is in the drop zone or within 3 points of safety (+0.06).
      * 2. Title contention: Team is within 6 points of the league leaders (+0.05).

@@ -19,4 +19,6 @@ public interface GameweekRepository extends JpaRepository<Gameweek, Integer> {
      * @return list of finished gameweeks
      */
     List<Gameweek> findAllByFinishedTrueOrderByIdAsc();
+
+    List<Gameweek> findAllByFinishedFalseOrderByIdAsc();
 }
