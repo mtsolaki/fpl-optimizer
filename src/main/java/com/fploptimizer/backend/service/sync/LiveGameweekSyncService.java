@@ -19,10 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Service responsible for ingesting live and settled match performance statistics for all players.
+ * <p>
  * Fetches actual performance data from the official FPL live gameweek endpoint, updates
  * PlayerGameweekLog entities with realized match outcomes, and calculates prediction discrepancy
  * deltas against projected expected points (xP) for analytics and model backtesting.
@@ -43,9 +47,10 @@ public class LiveGameweekSyncService {
 
     /**
      * Synchronizes realized statistics for all active players in a designated gameweek.
+     * <p>
      * Iterates through elements in the live payload, matches or initializes the corresponding
-     * PlayerGameweekLog, maps Opta and official FPL actual performance outcomes, computes prediction
-     * error deltas, and persists updates in batch.
+     * PlayerGameweekLog, maps underlying and official FPL actual performance outcomes, computes
+     * prediction error deltas, and persists updates in batch.
      *
      * @param gameweekId the unique identifier of the target gameweek
      * @param season     the competitive season string (e.g., "2026-2027")
@@ -65,33 +70,31 @@ public class LiveGameweekSyncService {
         // Fetch Gameweek entity once per batch
         Gameweek gameweek = gameweekRepository.findById(gameweekId).orElse(null);
 
+        // 1. Batch load existing logs for this round to eliminate individual find queries (N+1)
+        List<PlayerGameweekLog> existingLogs = logRepository.findAllByGameweekIdAndSeason(gameweekId, season);
+        Map<LogKey, PlayerGameweekLog> existingLogsMap = HashMap.newHashMap(existingLogs.size());
+        for (PlayerGameweekLog entry : existingLogs) {
+            if (entry.getPlayer() != null && entry.getFixture() != null) {
+                existingLogsMap.put(new LogKey(entry.getPlayer().getId(), entry.getFixture().getId()), entry);
+            }
+        }
+
+        // 2. Pre-fetch all players and gameweek fixtures for fast O(1) in-memory resolution of new logs
+        Map<Integer, Player> playersByFplId = playerRepository.findAll().stream()
+                .collect(Collectors.toMap(Player::getId, p -> p, (existing, _) -> existing));
+
+        Map<Integer, Fixture> fixturesById = fixtureRepository.findByGameweek(gameweekId).stream()
+                .collect(Collectors.toMap(Fixture::getId, f -> f, (existing, _) -> existing));
+
         List<PlayerGameweekLog> logsToSave = new ArrayList<>();
 
         for (LiveElementDto element : response.getElements()) {
-            if (element.getExplain() == null || element.getExplain().isEmpty()) {
-                continue; // Blank Gameweek for this player
+            PlayerGameweekLog logEntry = processElement(
+                    element, gameweek, season, existingLogsMap, playersByFplId, fixturesById
+            );
+            if (logEntry != null) {
+                logsToSave.add(logEntry);
             }
-
-            Integer fixtureId = element.getExplain().getFirst().getFixtureId();
-            if (fixtureId == null) {
-                continue;
-            }
-
-            int fplPlayerId = element.getId();
-
-            // 1. Find existing log or create a new one (e.g. historical backfill)
-            PlayerGameweekLog logEntry = logRepository
-                    .findByFplPlayerIdAndFixtureIdAndSeason(fplPlayerId, fixtureId, season)
-                    .orElseGet(() -> createNewLog(fplPlayerId, fixtureId, gameweek, season));
-
-            if (logEntry == null) {
-                // Skip safely if player or fixture is not found in database
-                continue;
-            }
-
-            // 2. Map incoming statistics to the embedded Outcome
-            mapStatsToOutcome(element.getStats(), logEntry);
-            logsToSave.add(logEntry);
         }
 
         // 3. Batch upsert
@@ -102,7 +105,55 @@ public class LiveGameweekSyncService {
     }
 
     /**
+     * Resolves or creates the log entry for a single live element and maps its incoming stats.
+     *
+     * @return the updated PlayerGameweekLog ready for persistence, or null if skipped
+     */
+    private PlayerGameweekLog processElement(
+            LiveElementDto element,
+            Gameweek gameweek,
+            String season,
+            Map<LogKey, PlayerGameweekLog> existingLogsMap,
+            Map<Integer, Player> playersByFplId,
+            Map<Integer, Fixture> fixturesById
+    ) {
+        if (element.getExplain() == null || element.getExplain().isEmpty()) {
+            return null; // Blank Gameweek for this player
+        }
+
+        Integer fixtureId = element.getExplain().getFirst().getFixtureId();
+        if (fixtureId == null) {
+            return null;
+        }
+
+        int fplPlayerId = element.getId();
+        LogKey key = new LogKey(fplPlayerId, fixtureId);
+        PlayerGameweekLog logEntry = existingLogsMap.get(key);
+
+        if (logEntry == null) {
+            Player player = playersByFplId.computeIfAbsent(
+                    fplPlayerId, id -> playerRepository.findByFplId(id).orElse(null)
+            );
+            Fixture fixture = fixturesById.computeIfAbsent(
+                    fixtureId, id -> fixtureRepository.findById(id).orElse(null)
+            );
+
+            if (player == null || fixture == null) {
+                log.warn("Entity not found: player (id: {}) or fixture (id: {})", fplPlayerId, fixtureId);
+                return null;
+            }
+
+            logEntry = createNewLog(player, fixture, gameweek, season);
+            existingLogsMap.put(key, logEntry);
+        }
+
+        mapStatsToOutcome(element.getStats(), logEntry);
+        return logEntry;
+    }
+
+    /**
      * Maps raw live statistics from the FPL API onto the embedded PlayerGameweekOutcome component.
+     * <p>
      * Computes the model projection discrepancy delta (Actual Points - Projected xP) if prior
      * projections are present on the log.
      *
@@ -110,7 +161,9 @@ public class LiveGameweekSyncService {
      * @param log   target log entity to update
      */
     private void mapStatsToOutcome(LiveStatsDto stats, PlayerGameweekLog log) {
-        if (stats == null) return;
+        if (stats == null) {
+            return;
+        }
 
         PlayerGameweekOutcome outcome = log.getOutcome();
         if (outcome == null) {
@@ -136,7 +189,7 @@ public class LiveGameweekSyncService {
         outcome.setActualPenaltiesMissed(stats.getPenaltiesMissed());
         outcome.setActualPenaltiesSaved(stats.getPenaltiesSaved());
 
-        // Safe double parsing for Opta Advanced Metrics
+        // Safe double parsing for advanced expected metrics
         outcome.setActualXg(parseDouble(stats.getExpectedGoals()));
         outcome.setActualXa(parseDouble(stats.getExpectedAssists()));
         outcome.setActualXgc(parseDouble(stats.getExpectedGoalsConceded()));
@@ -152,24 +205,17 @@ public class LiveGameweekSyncService {
     }
 
     /**
-     * Instantiates a new historical or backfill PlayerGameweekLog when none exists.
+     * Instantiates a new historical or backfill PlayerGameweekLog using pre-fetched player and fixture entities.
+     * <p>
      * Captures fixture home/away context, difficulty, and player set-piece responsibilities.
      *
-     * @param fplPlayerId unique external FPL player identifier
-     * @param fixtureId   target fixture ID
-     * @param gameweek    associated gameweek entity
-     * @param season      target season identifier
-     * @return initialized PlayerGameweekLog or null if required entities are absent
+     * @param player   the pre-fetched player entity
+     * @param fixture  the pre-fetched fixture entity
+     * @param gameweek associated gameweek entity
+     * @param season   target season identifier
+     * @return initialized PlayerGameweekLog
      */
-    private PlayerGameweekLog createNewLog(int fplPlayerId, int fixtureId, Gameweek gameweek, String season) {
-        Player player = playerRepository.findByFplId(fplPlayerId).orElse(null);
-        Fixture fixture = fixtureRepository.findById(fixtureId).orElse(null);
-
-        if (player == null || fixture == null) {
-            log.warn("Entity not found: player (id: {}) or fixture (id: {})", fplPlayerId, fixtureId);
-            return null;
-        }
-
+    private PlayerGameweekLog createNewLog(Player player, Fixture fixture, Gameweek gameweek, String season) {
         PlayerGameweekLog newLog = new PlayerGameweekLog();
         newLog.setPlayer(player);
         newLog.setFixture(fixture);
@@ -208,5 +254,11 @@ public class LiveGameweekSyncService {
         } catch (NumberFormatException _) {
             return 0.0;
         }
+    }
+
+    /**
+     * Composite key for looking up existing player gameweek logs by FPL player ID and fixture ID.
+     */
+    private record LogKey(int fplPlayerId, int fixtureId) {
     }
 }

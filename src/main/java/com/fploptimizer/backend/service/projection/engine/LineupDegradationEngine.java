@@ -10,14 +10,18 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * Computational engine evaluating team degradation factors caused by injuries,
- * suspensions, and player unavailabilities.
- *
- * Simulates a realistic starting eleven from available squad members, assesses the expected
- * loss in attacking threat (xG + xA) when core creative players are absent, and computes
- * defensive vulnerability penalties when key goalkeepers or defenders miss out.
+ * suspensions, and player absences.
+ * <p>
+ * Simulates a realistic starting eleven from available squad members. It also assesses
+ * expected attacking threat loss (xG + xA) and defensive vulnerability penalties.
  *
  * @author Maria Tsolaki
  * @version 1.0
@@ -35,6 +39,7 @@ public class LineupDegradationEngine {
     // Clamping boundaries for attack degradation factor (I_att in [0.70, 1.00])
     private static final double MIN_ATTACK_DEGRADATION = 0.70;
     private static final double MAX_ATTACK_DEGRADATION = 1.00;
+
     // Clamping boundaries for defense degradation factor (I_def in [1.00, 1.30])
     private static final double MIN_DEFENSE_DEGRADATION = 1.00;
     private static final double MAX_DEFENSE_DEGRADATION = 1.30;
@@ -42,12 +47,21 @@ public class LineupDegradationEngine {
     // Minimum positive offensive contribution threshold to prevent division by zero
     private static final double MIN_PLAYER_PRODUCTION = 0.05;
 
+    // FPL status flags representing complete unavailability ("i" = injured, "s" = suspended, "u" = unavailable)
+    private static final Set<String> UNAVAILABLE_STATUSES = Set.of("i", "s", "u");
+
+    // Maximum allowed outfield players per position under valid FPL formation rules
+    private static final Map<Position, Integer> MAX_OUTFIELD_SLOTS = Map.of(
+            Position.DEF, 5,
+            Position.MID, 5,
+            Position.FWD, 3
+    );
+
     /**
      * Calculates the attack and defense degradation multipliers for a given squad.
-     *
-     * Identifies the baseline starting eleven based on historical starting frequency,
-     * computes the offensive efficiency ratio under current player availability, and evaluates
-     * defensive exposure penalties.
+     * <p>
+     * Identifies the baseline starting eleven based on historical starts. Then it evaluates
+     * offensive efficiency under current availability and defensive exposure penalties.
      *
      * @param teamPlayers the complete roster of registered players for the team
      * @return a LineupDegradation record containing attack and defense adjustment multipliers
@@ -67,89 +81,82 @@ public class LineupDegradationEngine {
         double defenseDegradation = calculateDefenseDegradation(baselinePlayers);
 
         return new LineupDegradation(attackDegradation, defenseDegradation);
-
     }
+
     /**
      * Reconstructs the most probable starting eleven from a squad roster.
-     *
-     * Groups players by pitch position, sorts them by historical match starts in descending order,
-     * fills mandatory minimum positional quotas (1 GKP, 3 DEF, 2 MID, 1 FWD), and dynamically
-     * allocates the remaining 4 outfield slots to the most frequently started players under valid
-     * formation constraints.
+     * <p>
+     * Groups players by position and sorts them by historical match starts descending.
+     * It fills mandatory positional quotas (1 GKP, 3 DEF, 2 MID, 1 FWD) first, then allocates
+     * the remaining 4 outfield slots under valid formation constraints.
      *
      * @param teamPlayers the complete squad player list
      * @return a list containing up to 11 predicted baseline starting players
      */
     public List<Player> findBaselineStarters(List<Player> teamPlayers) {
-
-        List<Player> gks = new ArrayList<>();
-        List<Player> defs = new ArrayList<>();
-        List<Player> mids = new ArrayList<>();
-        List<Player> fwds = new ArrayList<>();
+        Map<Position, List<Player>> byPosition = new EnumMap<>(Position.class);
+        for (Position pos : Position.values()) {
+            byPosition.put(pos, new ArrayList<>());
+        }
 
         for (Player p : teamPlayers) {
-            if (p.getPosition() == null) continue;
-            switch (p.getPosition()) {
-                case GKP -> gks.add(p);
-                case DEF -> defs.add(p);
-                case MID -> mids.add(p);
-                case FWD -> fwds.add(p);
+            if (p.getPosition() != null) {
+                byPosition.get(p.getPosition()).add(p);
             }
         }
 
-        Comparator<Player> startsDesc = Comparator.comparing(this::getPlayerStarts);
+        Comparator<Player> startsDesc = Comparator.comparingInt(this::getPlayerStarts).reversed();
+        byPosition.values().forEach(list -> list.sort(startsDesc));
 
-        gks.sort(startsDesc);
-        defs.sort(startsDesc);
-        mids.sort(startsDesc);
-        fwds.sort(startsDesc);
+        List<Player> goalkeepers = byPosition.get(Position.GKP);
+        List<Player> defenders = byPosition.get(Position.DEF);
+        List<Player> midfielders = byPosition.get(Position.MID);
+        List<Player> forwards = byPosition.get(Position.FWD);
 
-        List<Player> starters = new ArrayList<>();
+        List<Player> starters = new ArrayList<>(11);
 
-        // main GKP
-        if (!gks.isEmpty()) starters.add(gks.getFirst());
-        //minimum Baseline
-        addTop(starters, defs, 3);
-        addTop(starters, mids, 2);
-        addTop(starters, fwds, 1);
+        // Main GKP and mandatory minimum positional quotas
+        if (!goalkeepers.isEmpty()) {
+            starters.add(goalkeepers.getFirst());
+        }
+        addTop(starters, defenders, 3);
+        addTop(starters, midfielders, 2);
+        addTop(starters, forwards, 1);
 
-        // rest
+        // Remaining outfield candidates sorted by starts descending
         List<Player> remainingOutfield = new ArrayList<>();
-        if (defs.size() > 3) remainingOutfield.addAll(defs.subList(3, defs.size()));
-        if (mids.size() > 2) remainingOutfield.addAll(mids.subList(2, mids.size()));
-        if (fwds.size() > 1) remainingOutfield.addAll(fwds.subList(1, fwds.size()));
-
+        remainingOutfield.addAll(tailFrom(defenders, 3));
+        remainingOutfield.addAll(tailFrom(midfielders, 2));
+        remainingOutfield.addAll(tailFrom(forwards, 1));
         remainingOutfield.sort(startsDesc);
 
-        int currentDefs = Math.min(defs.size(), 3);
-        int currentMids = Math.min(mids.size(), 2);
-        int currentFwds = Math.min(fwds.size(), 1);
+        Map<Position, Integer> slotCounts = new EnumMap<>(Position.class);
+        slotCounts.put(Position.DEF, Math.min(defenders.size(), 3));
+        slotCounts.put(Position.MID, Math.min(midfielders.size(), 2));
+        slotCounts.put(Position.FWD, Math.min(forwards.size(), 1));
 
         for (Player p : remainingOutfield) {
-            if (starters.size() >= 11) break;
-
-            Position type = p.getPosition();
-            if (type == Position.DEF && currentDefs < 5) {
+            if (starters.size() >= 11) {
+                break;
+            }
+            Position pos = p.getPosition();
+            int currentCount = slotCounts.getOrDefault(pos, 0);
+            if (currentCount < MAX_OUTFIELD_SLOTS.getOrDefault(pos, 0)) {
                 starters.add(p);
-                currentDefs++;
-            } else if (type == Position.MID && currentMids < 5) {
-                starters.add(p);
-                currentMids++;
-            } else if (type == Position.FWD && currentFwds < 3) {
-                starters.add(p);
-                currentFwds++;
+                slotCounts.put(pos, currentCount + 1);
             }
         }
 
         return starters;
     }
+
     /**
      * Computes the attacking degradation multiplier by comparing expected offensive production
      * against ideal full-strength squad output.
-     *
+     * <p>
      * Evaluates midfielders and forwards based on combined expected goal involvements (xG90 + xA90).
      * Missing chance of playing scales down player contribution, assuming bench replacements
-     * recover only a fraction (60%) of baseline output.
+     * recover 60% of baseline output.
      *
      * @param starters the list of baseline starting players
      * @return the attack degradation multiplier clamped between [MIN_ATTACK_DEGRADATION, MAX_ATTACK_DEGRADATION]
@@ -159,25 +166,17 @@ public class LineupDegradationEngine {
         double actualAttProduction = 0.0;
 
         for (Player p : starters) {
-            if (p.getPosition() == null) continue;
-            // Mid And Fwds focus in Attack
-            if (p.getPosition() == Position.MID || p.getPosition() == Position.FWD) {
-                double xg90 = 0.0;
-                double xa90 = 0.0;
-
-                PlayerAdvancedMetrics metrics = p.getAdvancedMetrics();
-                if (metrics != null) {
-                    xg90 = metrics.getExpectedGoalsPer90() != null ? metrics.getExpectedGoalsPer90() : 0.0;
-                    xa90 = metrics.getExpectedAssistsPer90() != null ? metrics.getExpectedAssistsPer90() : 0.0;
-                }
-
-                double playerProduction = Math.max(MIN_PLAYER_PRODUCTION, xg90 + xa90);
-                double cp = resolveAvailabilityChance(p);
-
-                idealAttProduction += playerProduction;
-                actualAttProduction += (cp * playerProduction)
-                        + ((1.0 - cp) * playerProduction * BENCH_REPLACEMENT_FACTOR);
+            Position pos = p.getPosition();
+            if (pos != Position.MID && pos != Position.FWD) {
+                continue;
             }
+
+            double playerProduction = getOffensiveProductionPer90(p);
+            double cp = resolveAvailabilityChance(p);
+
+            idealAttProduction += playerProduction;
+            actualAttProduction += (cp * playerProduction)
+                    + ((1.0 - cp) * playerProduction * BENCH_REPLACEMENT_FACTOR);
         }
 
         if (idealAttProduction <= 0.0) {
@@ -190,7 +189,7 @@ public class LineupDegradationEngine {
     /**
      * Calculates the defensive vulnerability multiplier (I_def) driven by unavailable
      * starting goalkeepers and defenders.
-     *
+     * <p>
      * Each missing starting defender or goalkeeper inflates expected goals conceded (xGC).
      *
      * @param starters the list of baseline starting players
@@ -200,13 +199,15 @@ public class LineupDegradationEngine {
         double totalPenalty = 0.0;
 
         for (Player p : starters) {
-            if (p.getPosition() == null) continue;
+            if (p.getPosition() == null) {
+                continue;
+            }
             double cp = resolveAvailabilityChance(p);
             double absenceWeight = 1.0 - cp;
 
-            if (p.getPosition() == Position.GKP) { // GKP
+            if (p.getPosition() == Position.GKP) {
                 totalPenalty += absenceWeight * GKP_ABSENCE_PENALTY;
-            } else if (p.getPosition() == Position.DEF) { // DEF
+            } else if (p.getPosition() == Position.DEF) {
                 totalPenalty += absenceWeight * DEF_ABSENCE_PENALTY;
             }
         }
@@ -217,32 +218,44 @@ public class LineupDegradationEngine {
 
     /**
      * Resolves the probability of a player being available to play, expressed in range [0.0, 1.0].
-     *
-     * Takes into account explicit unavailability flags ('i' for injured, 's' for suspended,
+     * <p>
+     * Accounts for explicit unavailability flags ('i' for injured, 's' for suspended,
      * 'u' for unavailable) and FPL market news chance-of-playing percentages.
      *
      * @param player the player entity being assessed
      * @return availability probability in range [0.0, 1.0]
      */
     private double resolveAvailabilityChance(Player player) {
-
         String status = player.getStatus();
-        if (status != null) {
-            // "i" = injured, "s" = suspended, "u" = unavailable
-            if (status.equalsIgnoreCase("i") || status.equalsIgnoreCase("s") || status.equalsIgnoreCase("u")) {
-                return 0.0;
-            }
+        if (status != null && UNAVAILABLE_STATUSES.contains(status.toLowerCase(Locale.ROOT))) {
+            return 0.0;
         }
+
         PlayerMarketInfo marketInfo = player.getMarketInfo();
         if (marketInfo != null && marketInfo.getChanceOfPlayingThisRound() != null) {
-            return marketInfo.getChanceOfPlayingThisRound() / 100.0;
+            return Math.clamp(marketInfo.getChanceOfPlayingThisRound() / 100.0, 0.0, 1.0);
         }
-
-
-
 
         return 1.0;
     }
+
+    /**
+     * Computes a player's combined expected goal involvement per 90 minutes (xG90 + xA90),
+     * floored at {@link #MIN_PLAYER_PRODUCTION}.
+     *
+     * @param player the player entity
+     * @return offensive production per 90 minutes, at least {@link #MIN_PLAYER_PRODUCTION}
+     */
+    private double getOffensiveProductionPer90(Player player) {
+        PlayerAdvancedMetrics metrics = player.getAdvancedMetrics();
+        if (metrics == null) {
+            return MIN_PLAYER_PRODUCTION;
+        }
+        double xg90 = metrics.getExpectedGoalsPer90() != null ? metrics.getExpectedGoalsPer90() : 0.0;
+        double xa90 = metrics.getExpectedAssistsPer90() != null ? metrics.getExpectedAssistsPer90() : 0.0;
+        return Math.max(MIN_PLAYER_PRODUCTION, xg90 + xa90);
+    }
+
     /**
      * Safely retrieves the number of games started by a player during the current campaign.
      *
@@ -255,6 +268,18 @@ public class LineupDegradationEngine {
             return perf.getStarts();
         }
         return 0;
+    }
+
+    /**
+     * Returns a view of the list starting at {@code fromIndex}, or an empty list if {@code fromIndex}
+     * is beyond the list size.
+     *
+     * @param list      the source list
+     * @param fromIndex the starting index (inclusive)
+     * @return sublist from {@code fromIndex} to the end, or an empty list
+     */
+    private List<Player> tailFrom(List<Player> list, int fromIndex) {
+        return list.size() > fromIndex ? list.subList(fromIndex, list.size()) : List.of();
     }
 
     /**

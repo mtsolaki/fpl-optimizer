@@ -3,6 +3,7 @@ package com.fploptimizer.backend.service.projection.engine;
 import com.fploptimizer.backend.entity.Player;
 import com.fploptimizer.backend.entity.PlayerGameweekLog;
 import com.fploptimizer.backend.entity.Position;
+import com.fploptimizer.backend.entity.player.PlayerGameweekOutcome;
 import com.fploptimizer.backend.service.projection.model.PlayerAttackResult;
 import com.fploptimizer.backend.service.projection.model.PlayerCardsResult;
 import com.fploptimizer.backend.service.projection.model.PlayerDefenceResult;
@@ -12,7 +13,7 @@ import java.util.List;
 
 /**
  * Computational engine responsible for estimating expected FPL bonus points (0 to 3 points).
- *
+ * <p>
  * Utilizes an event-driven heuristic calibrated against the official Bonus Points System (BPS):
  * 1. Derives positional baseline bonus expectancy from attacking contributions (xG, xA),
  *    defensive solidity (clean sheets, DefCon metrics, goalkeeper saves), and discipline penalties.
@@ -47,7 +48,7 @@ public class PlayerBonusEngine {
 
     /**
      * Projects expected bonus points for a player in an upcoming match.
-     *
+     * <p>
      * Evaluates positional event drivers (goals, assists, clean sheets, saves, cards)
      * and combines them with recent empirical bonus generation trends from historical logs.
      *
@@ -71,40 +72,7 @@ public class PlayerBonusEngine {
             return 0.0;
         }
 
-        // 1. Safe extraction of input projections
-        double xg = (attackResult != null) ? attackResult.expectedGoals() : 0.0;
-        double xa = (attackResult != null) ? attackResult.expectedAssists() : 0.0;
-        double csProb = (defenceResult != null) ? defenceResult.cleanSheetProbability() : 0.0;
-        double defConProb = (defenceResult != null) ? defenceResult.projectedDefConProb() : 0.0;
-        double saves = (defenceResult != null) ? defenceResult.projectedSaves() : 0.0;
-        double yellowCards = (cardsResult != null) ? cardsResult.projectedYellowCards() : 0.0;
-
-        // 2. Position-specific event-driven bonus evaluation
-        double eventBonus = 0.0;
-        Position pos = player.getPosition();
-
-        if (pos != null) {
-            switch (pos) {
-                case FWD, MID -> {
-                    eventBonus = (WEIGHT_ATTACK_XG * xg)
-                            + (WEIGHT_ATTACK_XA * xa)
-                            + (pos == Position.MID ? WEIGHT_ATTACK_CS * csProb : 0.0)
-                            - (WEIGHT_YELLOW_PENALTY * yellowCards);
-                }
-                case DEF, GKP -> {
-                    eventBonus = (WEIGHT_DEF_CS * csProb)
-                            + (WEIGHT_DEF_DEFCON * defConProb)
-                            + (pos == Position.GKP ? WEIGHT_DEF_SAVES * saves : 0.0)
-                            + (WEIGHT_DEF_XG * xg)
-                            + (WEIGHT_DEF_XA * xa)
-                            - (WEIGHT_YELLOW_PENALTY * yellowCards);
-                }
-            }
-        }
-
-        eventBonus = Math.max(0.0, eventBonus);
-
-        // 3. Blend with empirical bonus points from recent gameweek logs
+        double eventBonus = calculateEventBonus(player.getPosition(), attackResult, defenceResult, cardsResult);
         double finalBonus = getFinalBonus(projectedMinutes, gameweekLogs, eventBonus);
 
         // Official FPL rules cap bonus points between 0 and 3
@@ -112,8 +80,44 @@ public class PlayerBonusEngine {
     }
 
     /**
+     * Computes theoretical event-driven bonus expectancy based on position and projected match events.
+     */
+    private double calculateEventBonus(
+            Position pos,
+            PlayerAttackResult attackResult,
+            PlayerDefenceResult defenceResult,
+            PlayerCardsResult cardsResult
+    ) {
+        if (pos == null) {
+            return 0.0;
+        }
+
+        double xg = (attackResult != null) ? attackResult.expectedGoals() : 0.0;
+        double xa = (attackResult != null) ? attackResult.expectedAssists() : 0.0;
+        double csProb = (defenceResult != null) ? defenceResult.cleanSheetProbability() : 0.0;
+        double defConProb = (defenceResult != null) ? defenceResult.projectedDefConProb() : 0.0;
+        double saves = (defenceResult != null) ? defenceResult.projectedSaves() : 0.0;
+        double yellowCards = (cardsResult != null) ? cardsResult.projectedYellowCards() : 0.0;
+
+        double rawBonus = switch (pos) {
+            case FWD, MID -> (WEIGHT_ATTACK_XG * xg)
+                    + (WEIGHT_ATTACK_XA * xa)
+                    + (pos == Position.MID ? WEIGHT_ATTACK_CS * csProb : 0.0)
+                    - (WEIGHT_YELLOW_PENALTY * yellowCards);
+            case DEF, GKP -> (WEIGHT_DEF_CS * csProb)
+                    + (WEIGHT_DEF_DEFCON * defConProb)
+                    + (pos == Position.GKP ? WEIGHT_DEF_SAVES * saves : 0.0)
+                    + (WEIGHT_DEF_XG * xg)
+                    + (WEIGHT_DEF_XA * xa)
+                    - (WEIGHT_YELLOW_PENALTY * yellowCards);
+        };
+
+        return Math.max(0.0, rawBonus);
+    }
+
+    /**
      * Blends the event-driven bonus projection with the player's recent historical bonus trend.
-     *
+     * <p>
      * Computes the recent bonus rate per 90 minutes across historical logs and applies a dynamic
      * sample-size weight up to MAX_RECENT_BONUS_WEIGHT.
      *
@@ -123,25 +127,24 @@ public class PlayerBonusEngine {
      * @return blended bonus expectation
      */
     private static double getFinalBonus(double projectedMinutes, List<PlayerGameweekLog> gameweekLogs, double eventBonus) {
+        if (gameweekLogs == null || gameweekLogs.isEmpty()) {
+            return eventBonus;
+        }
+
         double totalRecentMinutes = 0.0;
         double totalRecentBonus = 0.0;
 
-        if (gameweekLogs != null) {
-            for (PlayerGameweekLog log : gameweekLogs) {
-                if (log == null || log.getOutcome() == null) continue;
-
-                Integer mins = log.getOutcome().getActualMinutes();
-                if (mins != null && mins > 0) {
-                    totalRecentMinutes += mins;
-
-                    if (log.getOutcome().getActualBonus() != null) {
-                        totalRecentBonus += log.getOutcome().getActualBonus();
-                    }
-                }
+        for (PlayerGameweekLog log : gameweekLogs) {
+            PlayerGameweekOutcome outcome = (log != null) ? log.getOutcome() : null;
+            if (outcome == null || outcome.getActualMinutes() == null || outcome.getActualMinutes() <= 0) {
+                continue;
+            }
+            totalRecentMinutes += outcome.getActualMinutes();
+            if (outcome.getActualBonus() != null) {
+                totalRecentBonus += outcome.getActualBonus();
             }
         }
 
-        // Return baseline event bonus if sample size is insufficient
         if (totalRecentMinutes < MIN_MINUTES_TO_CONSIDER) {
             return eventBonus;
         }

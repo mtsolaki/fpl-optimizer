@@ -59,6 +59,7 @@ public interface PlayerGameweekLogRepository extends JpaRepository<PlayerGamewee
     @Query("""
     SELECT log FROM PlayerGameweekLog log
     JOIN FETCH log.player p
+    LEFT JOIN FETCH p.team
     WHERE log.gameweek.id = :gameweekId
       AND log.projection.projectedXp IS NOT NULL
 """)
@@ -73,6 +74,8 @@ public interface PlayerGameweekLogRepository extends JpaRepository<PlayerGamewee
 
     @Query("""
     SELECT log FROM PlayerGameweekLog log
+    LEFT JOIN FETCH log.player p
+    LEFT JOIN FETCH log.fixture f
     WHERE log.gameweek.id = :gameweekId
       AND log.season = :season
 """)

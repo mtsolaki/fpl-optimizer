@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 /**
  * Computational engine responsible for evaluating team-level match strengths and fixture dynamics.
- *
+ * <p>
  * Combines baseline official Fixture Difficulty Ratings (FDR) with empirical form using
  * Bayesian shrinkage, adjusts for squad injury degradation and table motivation stakes,
  * and derives expected Poisson scoring rates (lambdas) and clean sheet probabilities.
@@ -47,7 +47,7 @@ public class FixtureStrengthEngine {
 
     /**
      * Constructs a comprehensive MatchContext for a specific fixture by evaluating both participating teams.
-     *
+     * <p>
      * The evaluation process runs in the following phases:
      * 1. Evaluates squad availability and injury penalties via LineupDegradationEngine.
      * 2. Computes competitive motivation from league standings via MatchStakesEngine.
@@ -66,6 +66,7 @@ public class FixtureStrengthEngine {
      * @param awayStandings  current league table snapshot for the away team
      * @return a fully populated MatchContext containing team projections and environmental multipliers
      */
+    @SuppressWarnings("java:S107")
     public MatchContext buildMatchContext(
             int fixtureId,
             int gameweek,
@@ -150,7 +151,7 @@ public class FixtureStrengthEngine {
 
     /**
      * Estimates baseline team offensive strength using a Bayesian shrinkage weighting formula.
-     *
+     * <p>
      * Balances official pre-season FDR strength with empirical goals scored per game.
      * Early in the season, when matches played (N) is small, the prior FDR carries most weight.
      * As the season advances, empirical output progressively dominates the rating.
@@ -185,7 +186,7 @@ public class FixtureStrengthEngine {
 
     /**
      * Estimates baseline team defensive strength using a Bayesian shrinkage weighting formula.
-     *
+     * <p>
      * Lower values indicate a stronger defense (fewer goals conceded).
      * High FDR teams start with lower defensive multipliers (superior defense), adjusted
      * continuously against realized goals conceded as match sample size accumulates.
@@ -223,7 +224,7 @@ public class FixtureStrengthEngine {
 
     /**
      * Resolves the official FPL team strength rating based on venue (Home/Away).
-     *
+     * <p>
      * Defaults to 3 (average league strength) if the team entity or metric is absent.
      *
      * @param team    the target team entity

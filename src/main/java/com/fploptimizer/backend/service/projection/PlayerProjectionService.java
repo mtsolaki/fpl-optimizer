@@ -4,8 +4,17 @@ import com.fploptimizer.backend.entity.Player;
 import com.fploptimizer.backend.entity.PlayerGameweekLog;
 import com.fploptimizer.backend.entity.Position;
 import com.fploptimizer.backend.entity.player.PlayerGameweekProjection;
-import com.fploptimizer.backend.service.projection.engine.*;
-import com.fploptimizer.backend.service.projection.model.*;
+import com.fploptimizer.backend.service.projection.engine.PlayerAttackEngine;
+import com.fploptimizer.backend.service.projection.engine.PlayerBonusEngine;
+import com.fploptimizer.backend.service.projection.engine.PlayerCardsEngine;
+import com.fploptimizer.backend.service.projection.engine.PlayerDefenceEngine;
+import com.fploptimizer.backend.service.projection.engine.PlayerMinutesEngine;
+import com.fploptimizer.backend.service.projection.model.PlayerAttackResult;
+import com.fploptimizer.backend.service.projection.model.PlayerCardsResult;
+import com.fploptimizer.backend.service.projection.model.PlayerDefenceResult;
+import com.fploptimizer.backend.service.projection.model.PlayerMinutesResult;
+import com.fploptimizer.backend.service.projection.model.TeamStrengthProjection;
+import com.fploptimizer.backend.service.projection.util.FplRulesHelper;
 import com.fploptimizer.backend.service.projection.util.PoissonMathUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +23,7 @@ import java.util.List;
 
 /**
  * Facade service orchestrating all specialized projection engines to generate comprehensive player projections.
+ * <p>
  * Coordinates execution flow across minutes estimation, attacking threats, defensive metrics,
  * disciplinary risks, and bonus point modeling, synthesizing all probabilistic components into
  * a final expected points (xP) projection according to official FPL scoring rules.
@@ -33,6 +43,7 @@ public class PlayerProjectionService {
 
     /**
      * Executes the end-to-end projection workflow for an individual player in an upcoming match.
+     * <p>
      * Evaluates on-pitch time first; if projected minutes are zero, short-circuits the pipeline
      * with zeroed metrics. Otherwise, evaluates offensive, defensive, disciplinary, and bonus engines,
      * applying official FPL scoring rules to determine expected points (xP).
@@ -122,28 +133,16 @@ public class PlayerProjectionService {
         projection.setProjectedBonus(projectedBonus);
 
         // 6. FPL Scoring Model (Expected Points - xP)
-        double appearancePts = (1.0 * startProb) + (1.0 * plus60Prob);
-
         Position pos = player.getPosition();
-        double goalPtsMultiplier = switch (pos) {
-            case FWD -> 4.0;
-            case MID -> 5.0;
-            case DEF, GKP -> 6.0;
-            case null -> 4.0;
-        };
-        double attackingPts = (xg * goalPtsMultiplier) + (xa * 3.0);
-
-        double cleanSheetPts = switch (pos) {
-            case DEF, GKP -> csProb * 4.0;
-            case MID -> csProb * 1.0;
-            case FWD -> 0.0;
-            case null -> 0.0;
-        };
-
-        double concededPenaltyPts = (pos == Position.DEF || pos == Position.GKP) ? gcPenalty : 0.0;
+        double appearancePts = startProb + plus60Prob;
+        double attackingPts = (xg * FplRulesHelper.getPointsPerGoal(pos))
+                + (xa * FplRulesHelper.POINTS_PER_ASSIST);
+        double cleanSheetPts = csProb * FplRulesHelper.getPointsPerCleanSheet(pos);
+        double concededPenaltyPts = FplRulesHelper.hasGoalsConcededPenalty(pos) ? gcPenalty : 0.0;
         double savePts = (pos == Position.GKP) ? PoissonMathUtils.calculateExpectedSavePoints(saves) : 0.0;
-        double defConPts = defConProb * 2.0;
-        double cardsDeduction = (yellowCards * 1.0) + (redCards * 3.0);
+        double defConPts = defConProb * FplRulesHelper.POINTS_DEFCON_BONUS;
+        double cardsDeduction = (yellowCards * FplRulesHelper.YELLOW_CARD_COST)
+                + (redCards * FplRulesHelper.RED_CARD_COST);
 
         double totalXp = appearancePts
                 + attackingPts

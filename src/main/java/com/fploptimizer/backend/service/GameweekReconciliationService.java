@@ -14,7 +14,7 @@ import java.util.Set;
 /**
  * Service responsible for identifying completed gameweeks lacking settled outcomes
  * and orchestrating their sequential synchronization.
- *
+ * <p>
  * Guarantees data completeness for model evaluation and historical feature generation by detecting
  * finished rounds that have not yet ingested actual match statistics.
  *
@@ -33,7 +33,7 @@ public class GameweekReconciliationService {
     /**
      * Dynamically identifies finished gameweeks without stored outcomes in the database
      * and sequentially calls LiveGameweekSyncService for each missing round.
-     *
+     * <p>
      * Invoking the sync service via Spring Bean proxy ensures that each gameweek
      * executes within its own isolated transactional boundary.
      *
@@ -42,10 +42,8 @@ public class GameweekReconciliationService {
     public void reconcileMissingGameweekOutcomes(String season) {
         log.info("Checking for finished gameweeks with missing outcomes...");
 
-        // 1. Retrieve all gameweeks marked as finished in the database
-        List<Gameweek> finishedGameweeks = gameweekRepository.findAll().stream()
-                .filter(gw -> Boolean.TRUE.equals(gw.getFinished()))
-                .toList();
+        // 1. Retrieve all finished gameweeks ordered chronologically via indexed query
+        List<Gameweek> finishedGameweeks = gameweekRepository.findAllByFinishedTrueOrderByIdAsc();
 
         if (finishedGameweeks.isEmpty()) {
             log.info("No finished gameweeks found in the database.");
@@ -59,7 +57,6 @@ public class GameweekReconciliationService {
         List<Integer> missingGameweekIds = finishedGameweeks.stream()
                 .map(Gameweek::getId)
                 .filter(id -> !settledGameweekIds.contains(id))
-                .sorted()
                 .toList();
 
         if (missingGameweekIds.isEmpty()) {

@@ -2,13 +2,15 @@ package com.fploptimizer.backend.service.projection.engine;
 
 import com.fploptimizer.backend.entity.Player;
 import com.fploptimizer.backend.entity.PlayerGameweekLog;
+import com.fploptimizer.backend.entity.player.PlayerGameweekOutcome;
 import com.fploptimizer.backend.service.projection.model.PlayerCardsResult;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+
 /**
  * Computational engine responsible for evaluating disciplinary risk (expected yellow and red cards).
- *
+ * <p>
  * Implements a Bayesian blending approach:
  * 1. Establishes positional priors based on historical Premier League disciplinary benchmarks.
  * 2. Derives baseline season-long per-90 rates from accumulated player performance metrics.
@@ -40,7 +42,7 @@ public class PlayerCardsEngine {
 
     /**
      * Projects expected yellow and red cards for a player in an upcoming match.
-     *
+     * <p>
      * Aggregates recent cards and minutes from historical logs, blends empirical rates
      * with seasonal or prior baselines, and normalizes by projected playing time.
      *
@@ -53,38 +55,20 @@ public class PlayerCardsEngine {
             Player player,
             double projectedMinutes,
             List<PlayerGameweekLog> gameweekLogs
-    ){
-        if (player == null || projectedMinutes <= 0.0) return new PlayerCardsResult(0.0, 0.0);
-
-        double totalRecentMinutes = 0.0;
-        double totalRecentYellows = 0.0;
-        double totalRecentReds = 0.0;
-
-        if (gameweekLogs != null) {
-            for (PlayerGameweekLog log : gameweekLogs) {
-                if (log == null || log.getOutcome() == null) continue;
-
-                Integer mins = log.getOutcome().getActualMinutes();
-                if (mins != null && mins > 0) {
-                    totalRecentMinutes += mins;
-
-                    if (log.getOutcome().getActualYellowCards() != null) {
-                        totalRecentYellows += log.getOutcome().getActualYellowCards();
-                    }
-                    if (log.getOutcome().getActualRedCards() != null) {
-                        totalRecentReds += log.getOutcome().getActualRedCards();
-                    }
-                }
-            }
+    ) {
+        if (player == null || projectedMinutes <= 0.0) {
+            return new PlayerCardsResult(0.0, 0.0);
         }
+
+        RecentCardTotals recent = aggregateRecentCards(gameweekLogs);
 
         // Macro baselines from season or prior
         double seasonYellow90 = resolveYellowCardsPer90(player);
         double seasonRed90 = resolveRedCardsPer90(player);
 
         // Blending season and recent games
-        double blendedYellow90 = blendRatePer90(seasonYellow90, totalRecentYellows, totalRecentMinutes);
-        double blendedRed90 = blendRatePer90(seasonRed90, totalRecentReds, totalRecentMinutes);
+        double blendedYellow90 = blendRatePer90(seasonYellow90, recent.yellows(), recent.minutes());
+        double blendedRed90 = blendRatePer90(seasonRed90, recent.reds(), recent.minutes());
 
         // Escalation based on expected minutes played
         double minutesRatio = projectedMinutes / 90.0;
@@ -92,12 +76,40 @@ public class PlayerCardsEngine {
         double expectedRedCards = blendedRed90 * minutesRatio;
 
         return new PlayerCardsResult(expectedYellowCards, expectedRedCards);
+    }
 
+    /**
+     * Aggregates realized minutes, yellow cards, and red cards across recent match logs.
+     */
+    private RecentCardTotals aggregateRecentCards(List<PlayerGameweekLog> gameweekLogs) {
+        if (gameweekLogs == null || gameweekLogs.isEmpty()) {
+            return new RecentCardTotals(0.0, 0.0, 0.0);
+        }
+
+        double totalMinutes = 0.0;
+        double totalYellows = 0.0;
+        double totalReds = 0.0;
+
+        for (PlayerGameweekLog log : gameweekLogs) {
+            PlayerGameweekOutcome outcome = (log != null) ? log.getOutcome() : null;
+            Integer mins = (outcome != null) ? outcome.getActualMinutes() : null;
+            if (mins == null || mins <= 0) {
+                continue;
+            }
+            totalMinutes += mins;
+            totalYellows += (outcome.getActualYellowCards() != null) ? outcome.getActualYellowCards() : 0;
+            totalReds += (outcome.getActualRedCards() != null) ? outcome.getActualRedCards() : 0;
+        }
+
+        return new RecentCardTotals(totalMinutes, totalYellows, totalReds);
+    }
+
+    private record RecentCardTotals(double minutes, double yellows, double reds) {
     }
 
     /**
      * Resolves the baseline expected yellow cards per 90 minutes.
-     *
+     * <p>
      * If the player has accumulated at least 90 minutes in the current campaign,
      * the empirical rate is utilized; otherwise, defaults to the positional prior.
      *
@@ -130,7 +142,7 @@ public class PlayerCardsEngine {
 
     /**
      * Resolves the baseline expected red cards per 90 minutes.
-     *
+     * <p>
      * If empirical minutes meet the 90-minute threshold, calculates the player's realized
      * rate; otherwise, falls back to positional prior expectations.
      *
@@ -163,7 +175,7 @@ public class PlayerCardsEngine {
 
     /**
      * Blends the long-term seasonal per-90 rate with the player's recent sample rate.
-     *
+     * <p>
      * Applies dynamic weight scaling up to MAX_RECENT_WEIGHT as recent minutes
      * approach the sample threshold.
      *

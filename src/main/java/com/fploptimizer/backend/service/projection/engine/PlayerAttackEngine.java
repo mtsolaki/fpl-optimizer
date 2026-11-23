@@ -2,6 +2,7 @@ package com.fploptimizer.backend.service.projection.engine;
 
 import com.fploptimizer.backend.entity.Player;
 import com.fploptimizer.backend.entity.PlayerGameweekLog;
+import com.fploptimizer.backend.entity.player.PlayerGameweekOutcome;
 import com.fploptimizer.backend.service.projection.model.PlayerAttackResult;
 import com.fploptimizer.backend.service.projection.model.TeamStrengthProjection;
 import org.springframework.stereotype.Component;
@@ -10,7 +11,7 @@ import java.util.List;
 
 /**
  * Computational engine responsible for projecting individual attacking output (xG and xA).
- *
+ * <p>
  * Employs a multi-layered Bayesian estimation framework:
  * 1. Establishes positional priors when sample sizes or underlying statistics are insufficient.
  * 2. Applies Bayesian shrinkage to season-long metrics based on total accumulated minutes.
@@ -50,14 +51,14 @@ public class PlayerAttackEngine {
 
     /**
      * Calculates projected expected goals (xG), expected assists (xA), and total offensive involvements (xGI).
-     *
+     * <p>
      * Derives final per-90 rates by blending Bayesian season baselines with recent gameweek form,
      * scales by the player's projected on-pitch minutes ratio, and adjusts for team offensive fixture strength.
      *
-     * @param player            the player entity to project
-     * @param projectedMinutes  the expected playing time in minutes for the upcoming fixture
-     * @param teamProjection    team-level strength context and expected team goals for the match
-     * @param gameweekLogs      recent match logs for the player used to assess short-term momentum
+     * @param player           the player entity to project
+     * @param projectedMinutes the expected playing time in minutes for the upcoming fixture
+     * @param teamProjection   team-level strength context and expected team goals for the match
+     * @param gameweekLogs     recent match logs for the player used to assess short-term momentum
      * @return a PlayerAttackResult containing projected xG, xA, and combined xGI
      */
     public PlayerAttackResult calculatePlayerAttack(
@@ -72,48 +73,30 @@ public class PlayerAttackEngine {
 
         // Team fixture scaling factor: square root dampens extreme team ratings
         double rawRatio = teamProjection.expectedGoals() / LEAGUE_AVG_TEAM_XG;
-        double attackFactor = Math.sqrt(rawRatio);
-        attackFactor = Math.clamp(attackFactor, 0.6, 1.5);
+        double attackFactor = Math.clamp(Math.sqrt(rawRatio), 0.6, 1.5);
 
         // Compute season baseline rates using Bayesian shrinkage
-        double seasonxGper90 = resolveExpectedGoalsPer90(player);
-        double seasonxAper90 = resolveExpectedAssistsPer90(player);
+        double seasonXgPer90 = resolveExpectedGoalsPer90(player);
+        double seasonXaPer90 = resolveExpectedAssistsPer90(player);
 
         // Aggregate recent performance logs
-        double totalRecentMinutes = 0.0;
-        double totalRecentXG = 0.0;
-        double totalRecentXA = 0.0;
-
-        if (gameweekLogs != null) {
-            for (PlayerGameweekLog log : gameweekLogs) {
-                if (log == null || log.getOutcome() == null) continue;
-                if (log.getOutcome().getActualMinutes() != null && log.getOutcome().getActualMinutes() >= 0.0) {
-                    totalRecentMinutes += log.getOutcome().getActualMinutes();
-                }
-                if (log.getOutcome().getActualXg() != null && log.getOutcome().getActualXg() >= 0.0) {
-                    totalRecentXG += log.getOutcome().getActualXg();
-                }
-                if (log.getOutcome().getActualXa() != null && log.getOutcome().getActualXa() >= 0.0) {
-                    totalRecentXA += log.getOutcome().getActualXa();
-                }
-            }
-        }
+        RecentAttackTotals recent = aggregateRecentLogs(gameweekLogs);
 
         double finalXgPer90;
         double finalXaPer90;
 
         // If recent sample is negligible, rely entirely on the blended season baseline
-        if (totalRecentMinutes < MIN_MINUTES_TO_CONSIDER) {
-            finalXgPer90 = seasonxGper90;
-            finalXaPer90 = seasonxAper90;
+        if (recent.minutes() < MIN_MINUTES_TO_CONSIDER) {
+            finalXgPer90 = seasonXgPer90;
+            finalXaPer90 = seasonXaPer90;
         } else {
             // Dynamically scale recent weight up to MAX_RECENT_WEIGHT as minutes approach the sample threshold
-            double weight = MAX_RECENT_WEIGHT * Math.min(1.0, totalRecentMinutes / SAMPLE_MINUTES_THRESHOLD);
-            double recentXgPer90 = Math.min((totalRecentXG / totalRecentMinutes) * 90.0, MAX_REALISTIC_XG_PER_90);
-            double recentXAPer90 = Math.min((totalRecentXA / totalRecentMinutes) * 90.0, MAX_REALISTIC_XA_PER_90);
+            double weight = MAX_RECENT_WEIGHT * Math.min(1.0, recent.minutes() / SAMPLE_MINUTES_THRESHOLD);
+            double recentXgPer90 = Math.min((recent.xg() / recent.minutes()) * 90.0, MAX_REALISTIC_XG_PER_90);
+            double recentXaPer90 = Math.min((recent.xa() / recent.minutes()) * 90.0, MAX_REALISTIC_XA_PER_90);
 
-            finalXgPer90 = (1.0 - weight) * seasonxGper90 + weight * recentXgPer90;
-            finalXaPer90 = (1.0 - weight) * seasonxAper90 + weight * recentXAPer90;
+            finalXgPer90 = (1.0 - weight) * seasonXgPer90 + weight * recentXgPer90;
+            finalXaPer90 = (1.0 - weight) * seasonXaPer90 + weight * recentXaPer90;
         }
 
         // Scale per-90 rates by projected pitch time and team fixture multiplier
@@ -125,8 +108,42 @@ public class PlayerAttackEngine {
     }
 
     /**
+     * Aggregates realized minutes, expected goals, and expected assists across historical match logs.
+     */
+    private RecentAttackTotals aggregateRecentLogs(List<PlayerGameweekLog> gameweekLogs) {
+        if (gameweekLogs == null || gameweekLogs.isEmpty()) {
+            return new RecentAttackTotals(0.0, 0.0, 0.0);
+        }
+
+        double totalMinutes = 0.0;
+        double totalXg = 0.0;
+        double totalXa = 0.0;
+
+        for (PlayerGameweekLog log : gameweekLogs) {
+            PlayerGameweekOutcome outcome = (log != null) ? log.getOutcome() : null;
+            if (outcome == null) {
+                continue;
+            }
+            if (outcome.getActualMinutes() != null && outcome.getActualMinutes() >= 0.0) {
+                totalMinutes += outcome.getActualMinutes();
+            }
+            totalXg += nonNegativeOrZero(outcome.getActualXg());
+            totalXa += nonNegativeOrZero(outcome.getActualXa());
+        }
+
+        return new RecentAttackTotals(totalMinutes, totalXg, totalXa);
+    }
+
+    private double nonNegativeOrZero(Double value) {
+        return (value != null && value >= 0.0) ? value : 0.0;
+    }
+
+    private record RecentAttackTotals(double minutes, double xg, double xa) {
+    }
+
+    /**
      * Resolves expected goals per 90 (xG90) using Bayesian shrinkage against positional priors.
-     *
+     * <p>
      * If sample minutes are fewer than 45, the model relies completely on the positional prior.
      * As accumulated playing time grows toward MIN_SEASON_SAMPLE_MINUTES (270 min), the empirical
      * rate is given progressively more weight.
@@ -135,7 +152,9 @@ public class PlayerAttackEngine {
      * @return the shrinkage-adjusted expected goals per 90 minutes
      */
     private double resolveExpectedGoalsPer90(Player player) {
-        if (player == null) return 0.0;
+        if (player == null) {
+            return 0.0;
+        }
 
         double prior = getPriorXG(player);
 
@@ -147,15 +166,11 @@ public class PlayerAttackEngine {
             double seasonMinutes = player.getPerformance().getMinutes();
             double rawPer90 = player.getAdvancedMetrics().getExpectedGoalsPer90();
 
-            // Default to prior if the player has negligible playing time
             if (seasonMinutes < 45.0) {
                 return prior;
             }
 
-            // Clamp outliers to the statistical ceiling before shrinkage
             rawPer90 = Math.clamp(rawPer90, 0.0, MAX_REALISTIC_XG_PER_90);
-
-            // Bayesian shrinkage weighting factor W = min(1.0, minutes / 270)
             double weight = Math.min(1.0, seasonMinutes / MIN_SEASON_SAMPLE_MINUTES);
             return (weight * rawPer90) + ((1.0 - weight) * prior);
         }
@@ -165,7 +180,7 @@ public class PlayerAttackEngine {
 
     /**
      * Resolves expected assists per 90 (xA90) using Bayesian shrinkage against positional priors.
-     *
+     * <p>
      * Clamps empirical rates to MAX_REALISTIC_XA_PER_90 and smoothly transitions from positional
      * prior to empirical performance based on total season playing minutes.
      *
@@ -173,7 +188,9 @@ public class PlayerAttackEngine {
      * @return the shrinkage-adjusted expected assists per 90 minutes
      */
     private double resolveExpectedAssistsPer90(Player player) {
-        if (player == null) return 0.0;
+        if (player == null) {
+            return 0.0;
+        }
 
         double prior = getPriorXA(player);
 
@@ -190,7 +207,6 @@ public class PlayerAttackEngine {
             }
 
             rawPer90 = Math.clamp(rawPer90, 0.0, MAX_REALISTIC_XA_PER_90);
-
             double weight = Math.min(1.0, seasonMinutes / MIN_SEASON_SAMPLE_MINUTES);
             return (weight * rawPer90) + ((1.0 - weight) * prior);
         }
@@ -205,7 +221,9 @@ public class PlayerAttackEngine {
      * @return prior xG per 90
      */
     private double getPriorXG(Player player) {
-        if (player.getPosition() == null) return 0.0;
+        if (player.getPosition() == null) {
+            return 0.0;
+        }
         return switch (player.getPosition()) {
             case FWD -> PRIOR_XG_FWD;
             case MID -> PRIOR_XG_MID;
@@ -221,7 +239,9 @@ public class PlayerAttackEngine {
      * @return prior xA per 90
      */
     private double getPriorXA(Player player) {
-        if (player.getPosition() == null) return 0.0;
+        if (player.getPosition() == null) {
+            return 0.0;
+        }
         return switch (player.getPosition()) {
             case FWD -> PRIOR_XA_FWD;
             case MID -> PRIOR_XA_MID;
